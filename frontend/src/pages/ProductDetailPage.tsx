@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
-import { FaShoppingCart, FaBolt, FaExpand, FaTimes, FaStar } from 'react-icons/fa';
+import { FaShoppingCart, FaBolt, FaExpand, FaTimes, FaStar, FaTag } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
-import { productService, cartService } from '../services/api';
+import { productService, cartService, promotionService } from '../services/api';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
@@ -270,6 +270,22 @@ const ProductBadge = styled.div`
   animation: ${float} 3s ease-in-out infinite;
 `;
 
+// Nuevo componente para la insignia de promoción
+const PromotionBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #ff4e50 0%, #f9d423 100%);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-left: 1rem;
+  animation: ${pulse} 2s ease-in-out infinite;
+  box-shadow: 0 5px 15px rgba(255, 78, 80, 0.3);
+`;
+
 const ProductTitle = styled.h1`
   font-size: 2.5rem;
   font-weight: 800;
@@ -318,6 +334,7 @@ const StockBadge = styled.div<{ inStock: boolean }>`
   animation: ${props => props.inStock ? pulse : 'none'} 2s infinite;
 `;
 
+// Modificado para manejar precios con descuento
 const PriceSection = styled.div`
   background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
   padding: 2rem;
@@ -337,6 +354,26 @@ const PriceSection = styled.div`
     background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
     animation: ${shimmer} 3s infinite;
   }
+`;
+
+// Componente para el precio original (tachado cuando hay promoción)
+const OriginalPrice = styled.div<{ hasDiscount: boolean }>`
+  font-size: ${props => props.hasDiscount ? '1.8rem' : '2.5rem'};
+  font-weight: ${props => props.hasDiscount ? '600' : '800'};
+  color: ${props => props.hasDiscount ? 'rgba(255, 255, 255, 0.7)' : 'white'};
+  text-decoration: ${props => props.hasDiscount ? 'line-through' : 'none'};
+  margin-bottom: ${props => props.hasDiscount ? '0.2rem' : '0.5rem'};
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+`;
+
+// Componente para el precio con descuento
+const DiscountedPrice = styled.div`
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: white;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  animation: ${pulse} 2s ease-in-out infinite;
 `;
 
 const PriceUSD = styled.div`
@@ -801,6 +838,17 @@ interface ProductImage {
   is_primary: boolean;
 }
 
+// Interfaz para promociones
+interface Promotion {
+  id: number;
+  name: string;
+  description: string;
+  discount_percentage: number;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+}
+
 interface Product {
   id: number;
   name: string;
@@ -817,6 +865,10 @@ interface Product {
   reviews?: Review[];
   average_rating?: number;
   review_count?: number;
+  // Nuevos campos para promociones
+  has_promotion?: boolean;
+  discounted_price?: number;
+  promotion?: Promotion;
 }
 
 interface Review {
@@ -857,7 +909,30 @@ const ProductDetailPage: React.FC = () => {
       try {
         setLoading(true);
         const response = await productService.getProduct(parseInt(id));
-        setProduct(response.data);
+        const productData = response.data;
+        
+        // Obtener promociones activas para este producto
+        const promotionsResponse = await promotionService.getActivePromotions(parseInt(id));
+        const activePromotions = promotionsResponse.data;
+        
+        // Aplicar promoción si existe
+        if (activePromotions && activePromotions.length > 0) {
+          const promotion = activePromotions[0]; // Tomamos la primera promoción activa
+          const discountPercentage = promotion.discount_percentage;
+          const discountedPrice = productData.price * (1 - discountPercentage / 100);
+          
+          setProduct({
+            ...productData,
+            has_promotion: true,
+            discounted_price: parseFloat(discountedPrice.toFixed(2)),
+            promotion: promotion
+          });
+        } else {
+          setProduct({
+            ...productData,
+            has_promotion: false
+          });
+        }
       } catch (error: any) {
         console.error('Error al cargar producto:', error);
         setError('Error al cargar el producto');
@@ -872,17 +947,16 @@ const ProductDetailPage: React.FC = () => {
   useEffect(() => {
     const fetchDollarRate = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/dollar-rate/');
+        const response = await fetch('http://localhost:8000/api/exchange-rate/');
         const data = await response.json();
         setDollarRate(data.rate);
       } catch (error) {
         console.error('Error al obtener tasa del dólar:', error);
       }
     };
-
+  
     fetchDollarRate();
   }, []);
-
   const formatPrice = (price: number): string => {
     return new Intl.NumberFormat('es-CL', {
       style: 'currency',
@@ -944,7 +1018,12 @@ const ProductDetailPage: React.FC = () => {
 
     try {
       setAddingToCart(true);
-      await cartService.addToCart(product.id, quantity);
+      // Modificado para incluir el ID de promoción si existe
+      await cartService.addToCart(
+        product.id, 
+        quantity, 
+        product.has_promotion && product.promotion ? product.promotion.id : undefined
+      );
       alert('Producto añadido al carrito exitosamente');
     } catch (error: any) {
       console.error('Error al añadir al carrito:', error);
@@ -965,7 +1044,12 @@ const ProductDetailPage: React.FC = () => {
 
     try {
       setAddingToCart(true);
-      await cartService.addToCart(product.id, quantity);
+      // Modificado para incluir el ID de promoción si existe
+      await cartService.addToCart(
+        product.id, 
+        quantity, 
+        product.has_promotion && product.promotion ? product.promotion.id : undefined
+      );
       // Redirigir directamente al checkout en lugar del carrito
       navigate('/checkout');
     } catch (error: any) {
@@ -1029,6 +1113,12 @@ const ProductDetailPage: React.FC = () => {
     } finally {
       setSubmittingReview(false);
     }
+  };
+
+  // Función para calcular el porcentaje de descuento
+  const calculateDiscountPercentage = (): string => {
+    if (!product || !product.has_promotion || !product.promotion) return '';
+    return `${product.promotion.discount_percentage}% OFF`;
   };
 
   if (loading) {
@@ -1108,7 +1198,15 @@ const ProductDetailPage: React.FC = () => {
               </ImageSection>
               
               <InfoSection>
-                <ProductBadge>{product.category.name}</ProductBadge>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <ProductBadge>{product.category.name}</ProductBadge>
+                  {product.has_promotion && (
+                    <PromotionBadge>
+                      <FaTag />
+                      {calculateDiscountPercentage() || 'Oferta Especial'}
+                    </PromotionBadge>
+                  )}
+                </div>
                 
                 <ProductTitle>{product.name}</ProductTitle>
                 
@@ -1128,10 +1226,22 @@ const ProductDetailPage: React.FC = () => {
                 </ProductMeta>
                 
                 <PriceSection>
-                  <PriceUSD>${product.price.toFixed(2)} USD</PriceUSD>
-                  <PriceCLP>
-                    {formatPrice(product.price_clp || product.price * dollarRate)}
-                  </PriceCLP>
+                  {product.has_promotion ? (
+                    <>
+                      <OriginalPrice hasDiscount={true}>${product.price.toFixed(2)} USD</OriginalPrice>
+                      <DiscountedPrice>${product.discounted_price?.toFixed(2)} USD</DiscountedPrice>
+                      <PriceCLP>
+                        {formatPrice((product.discounted_price || product.price) * dollarRate)}
+                      </PriceCLP>
+                    </>
+                  ) : (
+                    <>
+                      <OriginalPrice hasDiscount={false}>${product.price.toFixed(2)} USD</OriginalPrice>
+                      <PriceCLP>
+                        {formatPrice(product.price_clp || product.price * dollarRate)}
+                      </PriceCLP>
+                    </>
+                  )}
                   <PriceNote>Precio incluye IVA. Tasa de cambio actualizada.</PriceNote>
                 </PriceSection>
                 
@@ -1209,6 +1319,11 @@ const ProductDetailPage: React.FC = () => {
                         <p>
                           Características destacadas que hacen de este producto una excelente opción para tus necesidades. Fabricado con materiales de alta calidad y diseñado para brindar durabilidad y eficiencia.
                         </p>
+                        {product.has_promotion && product.promotion && (
+                          <p style={{ fontWeight: 'bold', color: '#e74c3c' }}>
+                            ¡Oferta especial! {product.promotion.description || `Aprovecha un ${product.promotion.discount_percentage}% de descuento por tiempo limitado.`}
+                          </p>
+                        )}
                         <p>
                           Ideal para uso profesional y doméstico, este producto cumple con los más altos estándares de calidad y seguridad del mercado.
                         </p>
@@ -1228,12 +1343,44 @@ const ProductDetailPage: React.FC = () => {
                           </SpecRow>
                           <SpecRow>
                             <SpecLabel>Precio USD</SpecLabel>
-                            <SpecValue>${product.price.toFixed(2)}</SpecValue>
+                            <SpecValue>
+                              {product.has_promotion ? (
+                                <span>
+                                  <span style={{ textDecoration: 'line-through', color: '#999' }}>${product.price.toFixed(2)}</span>
+                                  {' '}
+                                  <span style={{ fontWeight: 'bold', color: '#e74c3c' }}>${product.discounted_price?.toFixed(2)}</span>
+                                </span>
+                              ) : (
+                                `$${product.price.toFixed(2)}`
+                              )}
+                            </SpecValue>
                           </SpecRow>
                           <SpecRow>
                             <SpecLabel>Precio CLP</SpecLabel>
-                            <SpecValue>{formatPrice(product.price_clp || product.price * dollarRate)}</SpecValue>
+                            <SpecValue>
+                              {product.has_promotion ? (
+                                <span>
+                                  <span style={{ textDecoration: 'line-through', color: '#999' }}>
+                                    {formatPrice(product.price_clp || product.price * dollarRate)}
+                                  </span>
+                                  {' '}
+                                  <span style={{ fontWeight: 'bold', color: '#e74c3c' }}>
+                                    {formatPrice((product.discounted_price || product.price) * dollarRate)}
+                                  </span>
+                                </span>
+                              ) : (
+                                formatPrice(product.price_clp || product.price * dollarRate)
+                              )}
+                            </SpecValue>
                           </SpecRow>
+                          {product.has_promotion && product.promotion && (
+                            <SpecRow>
+                              <SpecLabel>Promoción</SpecLabel>
+                              <SpecValue>
+                                {product.promotion.name} - {product.promotion.discount_percentage}% de descuento
+                              </SpecValue>
+                            </SpecRow>
+                          )}
                           {product.specifications && Object.entries(product.specifications).map(([key, value]) => (
                             <SpecRow key={key}>
                               <SpecLabel>{key}</SpecLabel>

@@ -32,16 +32,43 @@ interface Product {
   warranty?: string;
 }
 
-interface ProductForm {
-  name: string;
-  description: string;
-  price: number;
-  stock: number;
-  category_id: number;
-  featured: boolean;
-  brand: string;
-  model: string;
-  warranty: string;
+interface Return {
+  id?: number;
+  return_number?: string;
+  order?: number;
+  customer?: number;
+  reason: string;
+  description?: string;
+  status: 'solicitada' | 'aprobada' | 'rechazada' | 'procesando' | 'completada';
+  requested_at?: string;
+  // Campos adicionales para mostrar en la tabla
+  date?: string;
+  customer_name?: string;
+  product_name?: string;
+  quantity?: number;
+  // Campos para el formulario del warehouse
+  product_id?: number;
+}
+
+interface InventoryReport {
+  id?: number;
+  report_type: string;
+  generated_date: string;
+  total_products: number;
+  low_stock_products: number;
+  out_of_stock_products: number;
+  total_value: number;
+}
+
+interface StockMovement {
+  id?: number;
+  product_id: number;
+  product_name?: string;
+  movement_type: 'in' | 'out' | 'adjustment';
+  quantity: number;
+  reason: string;
+  date: string;
+  user: string;
 }
 
 const PageContainer = styled.div`
@@ -209,7 +236,7 @@ const Select = styled.select`
   }
 `;
 
-const Button = styled.button<{ variant?: 'primary' | 'secondary' | 'danger' }>`
+const Button = styled.button<{ variant?: 'primary' | 'secondary' | 'danger' | 'success' }>`
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 8px;
@@ -232,6 +259,12 @@ const Button = styled.button<{ variant?: 'primary' | 'secondary' | 'danger' }>`
           color: white;
           &:hover { background: #5a6268; }
         `;
+      case 'success':
+        return `
+          background: #28a745;
+          color: white;
+          &:hover { background: #218838; }
+        `;
       default:
         return `
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -242,7 +275,7 @@ const Button = styled.button<{ variant?: 'primary' | 'secondary' | 'danger' }>`
   }}
 `;
 
-const ProductTable = styled.table`
+const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
   background: white;
@@ -276,7 +309,7 @@ const ActionButtons = styled.div`
   gap: 0.5rem;
 `;
 
-const SmallButton = styled.button<{ variant?: 'edit' | 'delete' | 'view' }>`
+const SmallButton = styled.button<{ variant?: 'edit' | 'delete' | 'view' | 'approve' | 'reject' }>`
   padding: 0.5rem 1rem;
   border: none;
   border-radius: 6px;
@@ -288,6 +321,7 @@ const SmallButton = styled.button<{ variant?: 'edit' | 'delete' | 'view' }>`
   ${props => {
     switch (props.variant) {
       case 'delete':
+      case 'reject':
         return `
           background: #dc3545;
           color: white;
@@ -299,6 +333,12 @@ const SmallButton = styled.button<{ variant?: 'edit' | 'delete' | 'view' }>`
           color: white;
           &:hover { background: #138496; }
         `;
+      case 'approve':
+        return `
+          background: #28a745;
+          color: white;
+          &:hover { background: #218838; }
+        `;
       default:
         return `
           background: #28a745;
@@ -307,49 +347,6 @@ const SmallButton = styled.button<{ variant?: 'edit' | 'delete' | 'view' }>`
         `;
     }
   }}
-`;
-
-const ImagePreview = styled.div`
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-top: 1rem;
-`;
-
-const ImageItem = styled.div`
-  position: relative;
-  width: 100px;
-  height: 100px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 2px solid #e0e0e0;
-`;
-
-const PreviewImage = styled.img`
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-`;
-
-const RemoveImageButton = styled.button`
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  background: #dc3545;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 25px;
-  height: 25px;
-  cursor: pointer;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  
-  &:hover {
-    background: #c82333;
-  }
 `;
 
 const Modal = styled.div<{ show: boolean }>`
@@ -393,27 +390,48 @@ const ErrorContainer = styled.div`
   margin-bottom: 1rem;
 `;
 
+const SuccessContainer = styled.div`
+  background: #d4edda;
+  color: #155724;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+`;
+
 const WarehouseDashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [returns, setReturns] = useState<Return[]>([]);
+  const [reports, setReports] = useState<InventoryReport[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
-  const [showProductModal, setShowProductModal] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [productForm, setProductForm] = useState<ProductForm>({
-    name: '',
-    description: '',
-    price: 0,
-    stock: 0,
-    category_id: 0,
-    featured: false,
-    brand: '',
-    model: '',
-    warranty: ''
+  
+  // Modals
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showStockModal, setShowStockModal] = useState(false);
+  
+  // Forms
+  const [returnForm, setReturnForm] = useState<Return>({
+    product_id: 0,
+    quantity: 0,
+    reason: '',
+    status: 'solicitada',
+    date: new Date().toISOString().split('T')[0],
+    customer_name: ''
   });
-  const [productImages, setProductImages] = useState<ProductImage[]>([]);
-  const [newImageUrl, setNewImageUrl] = useState('');
+  
+  const [stockForm, setStockForm] = useState<StockMovement>({
+    product_id: 0,
+    movement_type: 'in',
+    quantity: 0,
+    reason: '',
+    date: new Date().toISOString().split('T')[0],
+    user: 'Bodeguero'
+  });
 
   useEffect(() => {
     initializeDashboard();
@@ -424,7 +442,10 @@ const WarehouseDashboardPage: React.FC = () => {
       setLoading(true);
       await Promise.all([
         loadProducts(),
-        loadCategories()
+        loadCategories(),
+        loadReturns(),
+        loadReports(),
+        loadStockMovements()
       ]);
     } catch (err) {
       console.error('Error initializing dashboard:', err);
@@ -454,136 +475,273 @@ const WarehouseDashboardPage: React.FC = () => {
     }
   };
 
-  const handleProductSubmit = async (e: React.FormEvent) => {
+  const loadReturns = async () => {
+    try {
+      const response = await apiClient.get('/returns/returns/');
+      setReturns(response.data.results || response.data);
+    } catch (err) {
+      console.error('Error loading returns:', err);
+      // No lanzar error si no existe el endpoint
+    }
+  };
+
+  const loadReports = async () => {
+    try {
+      const response = await apiClient.get('/reports/');
+      setReports(response.data.results || response.data);
+    } catch (err) {
+      console.error('Error loading reports:', err);
+      // No lanzar error si no existe el endpoint
+    }
+  };
+
+  const loadStockMovements = async () => {
+    try {
+      // Since /api/stock-movements/ doesn't exist, we'll use local data
+      // or derive stock movements from other sources
+      const mockStockMovements: StockMovement[] = [
+        {
+          id: 1,
+          product_id: 1,
+          movement_type: 'in',
+          quantity: 50,
+          reason: 'Restock',
+          date: new Date().toISOString().split('T')[0],
+          user: 'Warehouse Manager'
+        },
+        {
+          id: 2,
+          product_id: 2,
+          movement_type: 'out',
+          quantity: 10,
+          reason: 'Sale',
+          date: new Date().toISOString().split('T')[0],
+          user: 'Warehouse Manager'
+        }
+      ];
+      setStockMovements(mockStockMovements);
+    } catch (err) {
+      console.error('Error loading stock movements:', err);
+      setStockMovements([]);
+    }
+  };
+  
+  const handleReturnSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const productData = {
-        ...productForm,
-        images: productImages.map((img, index) => ({
-          image_url: img.image_url,
-          alt_text: img.alt_text || productForm.name,
-          is_primary: index === 0,
-          order: index
-        }))
-      };
-
-      let response;
-      if (editingProduct) {
-        response = await apiClient.put(`/products/${editingProduct.id}/`, productData);
-      } else {
-        response = await apiClient.post('/products/', productData);
-      }
-
-      console.log('Producto guardado:', response.data);
-      await loadProducts();
-      resetForm();
-      setShowProductModal(false);
-    } catch (err: any) {
-      console.error('Error saving product:', err);
-      if (err.response?.data) {
-        console.error('Error details:', err.response.data);
-      }
-      setError('Error al guardar el producto: ' + (err.response?.data?.detail || err.message));
-    }
-  };
-
-  const handleDeleteProduct = async (productId: number) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
+      // Obtener el usuario actual del contexto de autenticación
+      const currentUser = await apiClient.get('/auth/user/');
+      
+      // Crear una orden temporal o usar una existente
+      let orderId;
       try {
-        await apiClient.delete(`/products/${productId}/`);
-        await loadProducts();
+        // Intentar obtener una orden existente del usuario
+        const ordersResponse = await apiClient.get('/orders/');
+        if (ordersResponse.data.length > 0) {
+          orderId = ordersResponse.data[0].id;
+        } else {
+          // Si no hay órdenes, crear una temporal para el warehouse
+          const tempOrder = await apiClient.post('/orders/', {
+            status: 'completed',
+            total_amount: 0,
+            items: []
+          });
+          orderId = tempOrder.data.id;
+        }
       } catch (err) {
-        console.error('Error deleting product:', err);
-        setError('Error al eliminar el producto');
+        throw new Error('No se pudo obtener o crear una orden válida');
       }
-    }
-  };
-
-  const handleEditProduct = (product: Product) => {
-    setEditingProduct(product);
-    setProductForm({
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      stock: product.stock,
-      category_id: product.category.id,
-      featured: product.featured,
-      brand: product.brand || '',
-      model: product.model || '',
-      warranty: product.warranty || ''
-    });
-    
-    setProductImages(product.images?.map(img => ({
-      image_url: img.image_url,
-      alt_text: img.alt_text,
-      is_primary: img.is_primary,
-      order: img.order
-    })) || []);
-    
-    setShowProductModal(true);
-  };
-
-  const resetForm = () => {
-    setEditingProduct(null);
-    setProductForm({
-      name: '',
-      description: '',
-      price: 0,
-      stock: 0,
-      category_id: 0,
-      featured: false,
-      brand: '',
-      model: '',
-      warranty: ''
-    });
-    setProductImages([]);
-    setNewImageUrl('');
-  };
-
-  const addImage = () => {
-    if (newImageUrl.trim()) {
-      const newImage: ProductImage = {
-        image_url: newImageUrl.trim(),
-        alt_text: productForm.name || 'Imagen del producto',
-        is_primary: productImages.length === 0,
-        order: productImages.length
+  
+      const returnData = {
+        order: orderId,
+        customer: currentUser.data.id,
+        reason: returnForm.reason || 'defectuoso',
+        description: `Devolución registrada desde warehouse - Producto: ${returnForm.product_id}, Cantidad: ${returnForm.quantity}, Motivo: ${returnForm.reason}`,
+        status: 'solicitada'
       };
-      setProductImages([...productImages, newImage]);
-      setNewImageUrl('');
+      
+      const response = await apiClient.post('/returns/returns/', returnData);
+      
+      setSuccess('Devolución registrada exitosamente');
+      await loadReturns();
+      resetReturnForm();
+      setShowReturnModal(false);
+    } catch (err: any) {
+      console.error('Error registering return:', err);
+      setError('Error al registrar la devolución: ' + (err.response?.data?.detail || err.message));
     }
   };
 
-  const removeImage = (index: number) => {
-    const updatedImages = productImages.filter((_, i) => i !== index);
-    // Si eliminamos la imagen principal, hacer que la primera sea principal
-    if (updatedImages.length > 0 && productImages[index].is_primary) {
-      updatedImages[0].is_primary = true;
-    }
-    setProductImages(updatedImages);
-  };
-
-  const setPrimaryImage = (index: number) => {
-    const updatedImages = productImages.map((img, i) => ({
-      ...img,
-      is_primary: i === index
-    }));
-    setProductImages(updatedImages);
-  };
-
-  const updateStock = async (productId: number, newStock: number) => {
+  const handleStockMovement = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      await apiClient.patch(`/products/${productId}/`, { stock: newStock });
+      const product = products.find(p => p.id === stockForm.product_id);
+      
+      if (product) {
+        let newStock = product.stock;
+        if (stockForm.movement_type === 'in') {
+          newStock += stockForm.quantity;
+        } else if (stockForm.movement_type === 'out') {
+          newStock -= stockForm.quantity;
+        } else {
+          newStock = stockForm.quantity; // adjustment
+        }
+        
+        // Actualizar el stock del producto
+        await apiClient.patch(`/products/${product.id}/`, { stock: Math.max(0, newStock) });
+        
+        // Registrar el movimiento de stock
+        const newMovement: StockMovement = {
+          id: Date.now(),
+          product_id: product.id!,
+          product_name: product.name,
+          movement_type: stockForm.movement_type,
+          quantity: stockForm.quantity,
+          reason: stockForm.reason,
+          date: stockForm.date,
+          user: stockForm.user
+        };
+        setStockMovements(prev => [newMovement, ...prev]);
+      }
+      
+      setSuccess('Movimiento de stock registrado exitosamente');
       await loadProducts();
-    } catch (err) {
-      console.error('Error updating stock:', err);
-      setError('Error al actualizar el stock');
+      resetStockForm();
+      setShowStockModal(false);
+    } catch (err: any) {
+      console.error('Error registering stock movement:', err);
+      setError('Error al registrar el movimiento: ' + (err.response?.data?.detail || err.message));
     }
   };
 
+  const generateInventoryReport = async () => {
+    try {
+      // Obtener el usuario actual
+      const currentUser = await apiClient.get('/auth/user/');
+      
+      const lowStockProducts = products.filter(p => p.stock < 10);
+      const outOfStockProducts = products.filter(p => p.stock === 0);
+      const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
+      
+      // Obtener el tipo de reporte correcto
+      let reportTypeId = 2;
+      try {
+        const reportTypesResponse = await apiClient.get('/report-types/');
+        const inventoryReportType = reportTypesResponse.data.find((rt: any) => rt.name === 'inventario');
+        if (inventoryReportType) {
+          reportTypeId = inventoryReportType.id;
+        }
+      } catch (err) {
+        console.log('No se pudieron obtener los tipos de reporte, usando ID por defecto');
+      }
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      const reportData = {
+        report_type: reportTypeId,
+        generated_by: currentUser.data.id, // Usar el ID del usuario actual
+        title: 'Reporte de Inventario - Dashboard Warehouse',
+        description: 'Reporte automático de inventario generado desde el dashboard de warehouse',
+        date_from: today,
+        date_to: today,
+        data: {
+          total_products: products.length,
+          low_stock_products: lowStockProducts.length,
+          out_of_stock_products: outOfStockProducts.length,
+          total_value: totalValue,
+          low_stock_items: lowStockProducts.map(p => ({
+            id: p.id,
+            name: p.name,
+            stock: p.stock,
+            price: p.price
+          })),
+          out_of_stock_items: outOfStockProducts.map(p => ({
+            id: p.id,
+            name: p.name,
+            stock: p.stock,
+            price: p.price
+          }))
+        }
+      };
+      
+      await apiClient.post('/reports/', reportData);
+      setSuccess('Reporte de inventario generado exitosamente');
+      await loadReports();
+    } catch (err: any) {
+      console.error('Error generating report:', err);
+      setError('Error al generar el reporte: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleReturnStatusChange = async (returnId: number, status: 'aprobada' | 'rechazada') => {
+    try {
+      await apiClient.patch(`/returns/returns/${returnId}/`, { status });
+      
+      if (status === 'aprobada') {
+        // Si se aprueba la devolución, aumentar el stock
+        const returnItem = returns.find(r => r.id === returnId);
+        if (returnItem && returnItem.product_id && returnItem.quantity) {
+          const product = products.find(p => p.id === returnItem.product_id);
+          if (product) {
+            await apiClient.patch(`/products/${product.id}/`, { 
+              stock: product.stock + returnItem.quantity 
+            });
+          }
+        }
+      }
+      
+      setSuccess(`Devolución ${status === 'aprobada' ? 'aprobada' : 'rechazada'} exitosamente`);
+      await Promise.all([loadReturns(), loadProducts()]);
+    } catch (err: any) {
+      console.error('Error updating return status:', err);
+      setError('Error al actualizar el estado de la devolución');
+    }
+  };
+
+  const resetReturnForm = () => {
+    setReturnForm({
+      product_id: 0,
+      quantity: 0,
+      reason: '',
+      status: 'solicitada',
+      date: new Date().toISOString().split('T')[0],
+      customer_name: ''
+    });
+  };
+
+  const resetStockForm = () => {
+    setStockForm({
+      product_id: 0,
+      movement_type: 'in',
+      quantity: 0,
+      reason: '',
+      date: new Date().toISOString().split('T')[0],
+      user: 'Bodeguero'
+    });
+  };
+
+  // Estadísticas
   const lowStockProducts = products.filter(product => product.stock < 10);
+  const outOfStockProducts = products.filter(product => product.stock === 0);
   const totalProducts = products.length;
   const totalStock = products.reduce((sum, product) => sum + product.stock, 0);
-  const featuredProducts = products.filter(product => product.featured).length;
+  const totalValue = products.reduce((sum, product) => sum + (product.price * product.stock), 0);
+  const pendingReturns = returns.filter(r => r.status === 'solicitada').length;
+
+  // Limpiar mensajes después de 5 segundos
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
 
   if (loading) {
     return (
@@ -591,7 +749,7 @@ const WarehouseDashboardPage: React.FC = () => {
         <Navbar />
         <MainContent>
           <LoadingContainer>
-            Cargando dashboard...
+            Cargando dashboard del bodeguero...
           </LoadingContainer>
         </MainContent>
         <Footer />
@@ -606,9 +764,14 @@ const WarehouseDashboardPage: React.FC = () => {
         <DashboardContainer>
           <Header>
             <Title>Dashboard de Bodeguero</Title>
-            <Button onClick={() => setShowProductModal(true)}>
-              Agregar Producto
-            </Button>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <Button onClick={() => setShowStockModal(true)}>
+                Movimiento de Stock
+              </Button>
+              <Button onClick={() => setShowReturnModal(true)}>
+                Registrar Devolución
+              </Button>
+            </div>
           </Header>
 
           {error && (
@@ -617,31 +780,49 @@ const WarehouseDashboardPage: React.FC = () => {
             </ErrorContainer>
           )}
 
+          {success && (
+            <SuccessContainer>
+              {success}
+            </SuccessContainer>
+          )}
+
           <TabContainer>
             <Tab 
               active={activeTab === 'overview'} 
               onClick={() => setActiveTab('overview')}
             >
-              Resumen
+              📊 Resumen
             </Tab>
             <Tab 
-              active={activeTab === 'products'} 
-              onClick={() => setActiveTab('products')}
+              active={activeTab === 'inventory'} 
+              onClick={() => setActiveTab('inventory')}
             >
-              Gestión de Productos
+              📦 Organizar Inventario
             </Tab>
             <Tab 
               active={activeTab === 'stock'} 
               onClick={() => setActiveTab('stock')}
             >
-              Control de Stock
+              📈 Control de Stock
+            </Tab>
+            <Tab 
+              active={activeTab === 'returns'} 
+              onClick={() => setActiveTab('returns')}
+            >
+              🔄 Devoluciones
+            </Tab>
+            <Tab 
+              active={activeTab === 'reports'} 
+              onClick={() => setActiveTab('reports')}
+            >
+              📋 Reportes
             </Tab>
           </TabContainer>
 
           <ContentSection>
             {activeTab === 'overview' && (
               <>
-                <h3>Estadísticas Generales</h3>
+                <h3>📊 Estadísticas del Inventario</h3>
                 <StatsGrid>
                   <StatCard>
                     <StatNumber>{totalProducts}</StatNumber>
@@ -653,65 +834,74 @@ const WarehouseDashboardPage: React.FC = () => {
                   </StatCard>
                   <StatCard>
                     <StatNumber>{lowStockProducts.length}</StatNumber>
-                    <StatLabel>Stock Bajo</StatLabel>
+                    <StatLabel>Stock Bajo (&lt;10)</StatLabel>
                   </StatCard>
                   <StatCard>
-                    <StatNumber>{featuredProducts}</StatNumber>
-                    <StatLabel>Productos Destacados</StatLabel>
+                    <StatNumber>{outOfStockProducts.length}</StatNumber>
+                    <StatLabel>Sin Stock</StatLabel>
+                  </StatCard>
+                  <StatCard>
+                    <StatNumber>${totalValue.toLocaleString()}</StatNumber>
+                    <StatLabel>Valor Total Inventario</StatLabel>
+                  </StatCard>
+                  <StatCard>
+                    <StatNumber>{pendingReturns}</StatNumber>
+                    <StatLabel>Devoluciones Pendientes</StatLabel>
                   </StatCard>
                 </StatsGrid>
 
                 {lowStockProducts.length > 0 && (
                   <>
                     <h3 style={{ color: '#dc3545', marginBottom: '1rem' }}>⚠️ Productos con Stock Bajo</h3>
-                    <ProductTable>
+                    <Table>
                       <thead>
                         <tr>
                           <TableHeader>Producto</TableHeader>
                           <TableHeader>Stock Actual</TableHeader>
                           <TableHeader>Categoría</TableHeader>
-                          <TableHeader>Acciones</TableHeader>
+                          <TableHeader>Valor</TableHeader>
                         </tr>
                       </thead>
                       <tbody>
                         {lowStockProducts.map(product => (
                           <TableRow key={product.id}>
-                            <TableCell>{product.name}</TableCell>
+                            <TableCell>
+                              <strong>{product.name}</strong>
+                              {product.brand && <div style={{ fontSize: '0.8rem', color: '#666' }}>{product.brand}</div>}
+                            </TableCell>
                             <TableCell>
                               <span style={{ color: '#dc3545', fontWeight: 'bold' }}>
                                 {product.stock}
                               </span>
                             </TableCell>
                             <TableCell>{product.category.name}</TableCell>
-                            <TableCell>
-                              <ActionButtons>
-                                <SmallButton
-                                  variant="edit"
-                                  onClick={() => handleEditProduct(product)}
-                                >
-                                  Editar
-                                </SmallButton>
-                              </ActionButtons>
-                            </TableCell>
+                            <TableCell>${(product.price * product.stock).toLocaleString()}</TableCell>
                           </TableRow>
                         ))}
                       </tbody>
-                    </ProductTable>
+                    </Table>
                   </>
                 )}
               </>
             )}
 
-            {activeTab === 'products' && (
+            {activeTab === 'inventory' && (
               <>
-                <h3>Gestión de Productos</h3>
-                <ProductTable>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                  <h3>📦 Organizar Inventario</h3>
+                  <Button onClick={generateInventoryReport}>
+                    Generar Reporte
+                  </Button>
+                </div>
+                
+                <Table>
                   <thead>
                     <tr>
-                      <TableHeader>Nombre</TableHeader>
+                      <TableHeader>Producto</TableHeader>
                       <TableHeader>Categoría</TableHeader>
-                      <TableHeader>Precio</TableHeader>
                       <TableHeader>Stock</TableHeader>
+                      <TableHeader>Precio</TableHeader>
+                      <TableHeader>Valor Total</TableHeader>
                       <TableHeader>Estado</TableHeader>
                       <TableHeader>Acciones</TableHeader>
                     </tr>
@@ -722,111 +912,202 @@ const WarehouseDashboardPage: React.FC = () => {
                         <TableCell>
                           <div>
                             <strong>{product.name}</strong>
-                            {product.featured && (
-                              <span style={{
-                                background: '#ffc107',
-                                color: '#212529',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                fontSize: '10px',
-                                marginLeft: '8px'
-                              }}>
-                                DESTACADO
-                              </span>
-                            )}
+                            {product.brand && <div style={{ fontSize: '0.8rem', color: '#666' }}>{product.brand} - {product.model}</div>}
                           </div>
                         </TableCell>
                         <TableCell>{product.category.name}</TableCell>
-                        <TableCell>${product.price}</TableCell>
                         <TableCell>
                           <span style={{ 
-                            color: product.stock < 10 ? '#dc3545' : '#28a745',
+                            color: product.stock === 0 ? '#dc3545' : product.stock < 10 ? '#ffc107' : '#28a745',
                             fontWeight: 'bold'
                           }}>
                             {product.stock}
                           </span>
                         </TableCell>
+                        <TableCell>${product.price.toLocaleString()}</TableCell>
+                        <TableCell>${(product.price * product.stock).toLocaleString()}</TableCell>
                         <TableCell>
                           <span style={{
-                            color: product.stock > 0 ? '#28a745' : '#dc3545',
-                            fontWeight: 'bold'
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold',
+                            background: product.stock === 0 ? '#dc3545' : product.stock < 10 ? '#ffc107' : '#28a745',
+                            color: 'white'
                           }}>
-                            {product.stock > 0 ? 'Disponible' : 'Agotado'}
+                            {product.stock === 0 ? 'Sin Stock' : product.stock < 10 ? 'Stock Bajo' : 'Disponible'}
                           </span>
                         </TableCell>
                         <TableCell>
                           <ActionButtons>
                             <SmallButton
-                              variant="edit"
-                              onClick={() => handleEditProduct(product)}
+                              onClick={() => {
+                                setStockForm({
+                                  ...stockForm,
+                                  product_id: product.id!,
+                                  movement_type: 'in'
+                                });
+                                setShowStockModal(true);
+                              }}
                             >
-                              Editar
-                            </SmallButton>
-                            <SmallButton
-                              variant="delete"
-                              onClick={() => handleDeleteProduct(product.id!)}
-                            >
-                              Eliminar
+                              Reabastecer
                             </SmallButton>
                           </ActionButtons>
                         </TableCell>
                       </TableRow>
                     ))}
                   </tbody>
-                </ProductTable>
+                </Table>
               </>
             )}
 
             {activeTab === 'stock' && (
               <>
-                <h3>Control de Stock</h3>
-                <ProductTable>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                  <h3>📈 Control de Stock</h3>
+                  <Button onClick={() => setShowStockModal(true)}>
+                    Nuevo Movimiento
+                  </Button>
+                </div>
+                
+                <h4>Movimientos Recientes</h4>
+                <Table>
                   <thead>
                     <tr>
+                      <TableHeader>Fecha</TableHeader>
                       <TableHeader>Producto</TableHeader>
-                      <TableHeader>Stock Actual</TableHeader>
-                      <TableHeader>Nuevo Stock</TableHeader>
+                      <TableHeader>Tipo</TableHeader>
+                      <TableHeader>Cantidad</TableHeader>
+                      <TableHeader>Motivo</TableHeader>
+                      <TableHeader>Usuario</TableHeader>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stockMovements.slice(0, 20).map(movement => (
+                      <TableRow key={movement.id}>
+                        <TableCell>{new Date(movement.date).toLocaleDateString()}</TableCell>
+                        <TableCell>{movement.product_name}</TableCell>
+                        <TableCell>
+                          <span style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold',
+                            background: movement.movement_type === 'in' ? '#28a745' : movement.movement_type === 'out' ? '#dc3545' : '#ffc107',
+                            color: 'white'
+                          }}>
+                            {movement.movement_type === 'in' ? 'Entrada' : movement.movement_type === 'out' ? 'Salida' : 'Ajuste'}
+                          </span>
+                        </TableCell>
+                        <TableCell>{movement.quantity}</TableCell>
+                        <TableCell>{movement.reason}</TableCell>
+                        <TableCell>{movement.user}</TableCell>
+                      </TableRow>
+                    ))}
+                  </tbody>
+                </Table>
+              </>
+            )}
+
+            {activeTab === 'returns' && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                  <h3>🔄 Gestión de Devoluciones</h3>
+                  <Button onClick={() => setShowReturnModal(true)}>
+                    Registrar Devolución
+                  </Button>
+                </div>
+                
+                <Table>
+                  <thead>
+                    <tr>
+                      <TableHeader>Fecha</TableHeader>
+                      <TableHeader>Cliente</TableHeader>
+                      <TableHeader>Producto</TableHeader>
+                      <TableHeader>Cantidad</TableHeader>
+                      <TableHeader>Motivo</TableHeader>
+                      <TableHeader>Estado</TableHeader>
                       <TableHeader>Acciones</TableHeader>
                     </tr>
                   </thead>
                   <tbody>
-                    {products.map(product => (
-                      <TableRow key={product.id}>
-                        <TableCell>{product.name}</TableCell>
+                    {returns.map(returnItem => (
+                      <TableRow key={returnItem.id}>
+                        <TableCell>{returnItem.date ? new Date(returnItem.date).toLocaleDateString() : 'N/A'}</TableCell>
+                        <TableCell>{returnItem.customer_name}</TableCell>
+                        <TableCell>{returnItem.product_name}</TableCell>
+                        <TableCell>{returnItem.quantity}</TableCell>
+                        <TableCell>{returnItem.reason}</TableCell>
                         <TableCell>
-                          <span style={{ 
-                            color: product.stock < 10 ? '#dc3545' : '#28a745',
-                            fontWeight: 'bold'
+                          <span style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold',
+                            background: returnItem.status === 'aprobada' ? '#28a745' : returnItem.status === 'rechazada' ? '#dc3545' : '#ffc107',
+                            color: 'white'
                           }}>
-                            {product.stock}
+                            {returnItem.status === 'aprobada' ? 'Aprobada' : returnItem.status === 'rechazada' ? 'Rechazada' : 'Pendiente'}
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            defaultValue={product.stock}
-                            id={`stock-${product.id}`}
-                            style={{ width: '100px' }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <SmallButton
-                            onClick={() => {
-                              const input = document.getElementById(`stock-${product.id}`) as HTMLInputElement;
-                              const newStock = parseInt(input.value);
-                              if (!isNaN(newStock) && newStock >= 0) {
-                                updateStock(product.id!, newStock);
-                              }
-                            }}
-                          >
-                            Actualizar
-                          </SmallButton>
+                          {returnItem.status === 'solicitada' && (
+                            <ActionButtons>
+                              <SmallButton
+                                variant="approve"
+                                onClick={() => handleReturnStatusChange(returnItem.id!, 'aprobada')}
+                              >
+                                Aprobar
+                              </SmallButton>
+                              <SmallButton
+                                variant="reject"
+                                onClick={() => handleReturnStatusChange(returnItem.id!, 'rechazada')}
+                              >
+                                Rechazar
+                              </SmallButton>
+                            </ActionButtons>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
                   </tbody>
-                </ProductTable>
+                </Table>
+              </>
+            )}
+
+            {activeTab === 'reports' && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                  <h3>📋 Reportes de Inventario</h3>
+                  <Button onClick={generateInventoryReport}>
+                    Generar Nuevo Reporte
+                  </Button>
+                </div>
+                
+                <Table>
+                  <thead>
+                    <tr>
+                      <TableHeader>Fecha</TableHeader>
+                      <TableHeader>Tipo</TableHeader>
+                      <TableHeader>Total Productos</TableHeader>
+                      <TableHeader>Stock Bajo</TableHeader>
+                      <TableHeader>Sin Stock</TableHeader>
+                      <TableHeader>Valor Total</TableHeader>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reports.map(report => (
+                      <TableRow key={report.id}>
+                        <TableCell>{new Date(report.generated_date).toLocaleDateString()}</TableCell>
+                        <TableCell>Resumen de Inventario</TableCell>
+                        <TableCell>{report.total_products}</TableCell>
+                        <TableCell>{report.low_stock_products}</TableCell>
+                        <TableCell>{report.out_of_stock_products}</TableCell>
+                        <TableCell>${report.total_value.toLocaleString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </tbody>
+                </Table>
               </>
             )}
           </ContentSection>
@@ -834,209 +1115,174 @@ const WarehouseDashboardPage: React.FC = () => {
       </MainContent>
       <Footer />
 
-      {/* Modal para agregar/editar producto */}
-      <Modal show={showProductModal}>
+      {/* Modal para Registrar Devolución */}
+      <Modal show={showReturnModal}>
         <ModalContent>
-          <h2>{editingProduct ? 'Editar Producto' : 'Agregar Nuevo Producto'}</h2>
+          <h2>🔄 Registrar Devolución</h2>
           
-          <form onSubmit={handleProductSubmit}>
+          <form onSubmit={handleReturnSubmit}>
             <FormGrid>
               <FormGroup>
-                <Label>Nombre del Producto</Label>
-                <Input
-                  type="text"
-                  value={productForm.name}
-                  onChange={(e) => setProductForm({...productForm, name: e.target.value})}
-                  required
-                />
-              </FormGroup>
-              
-              <FormGroup>
-                <Label>Categoría</Label>
+                <Label>Producto</Label>
                 <Select
-                  value={productForm.category_id}
-                  onChange={(e) => setProductForm({...productForm, category_id: parseInt(e.target.value)})}
+                  value={returnForm.product_id}
+                  onChange={(e) => setReturnForm({...returnForm, product_id: parseInt(e.target.value)})}
                   required
                 >
-                  <option value={0}>Seleccionar categoría</option>
-                  {categories.map(category => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
+                  <option value={0}>Seleccionar producto</option>
+                  {products.map(product => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} (Stock: {product.stock})
                     </option>
                   ))}
                 </Select>
               </FormGroup>
               
               <FormGroup>
-                <Label>Precio</Label>
+                <Label>Nombre del Cliente</Label>
+                <Input
+                  type="text"
+                  value={returnForm.customer_name}
+                  onChange={(e) => setReturnForm({...returnForm, customer_name: e.target.value})}
+                  required
+                  placeholder="Nombre completo del cliente"
+                />
+              </FormGroup>
+              
+              <FormGroup>
+                <Label>Cantidad</Label>
                 <Input
                   type="number"
-                  step="0.01"
-                  min="0"
-                  value={productForm.price}
-                  onChange={(e) => setProductForm({...productForm, price: parseFloat(e.target.value)})}
+                  min="1"
+                  value={returnForm.quantity}
+                  onChange={(e) => setReturnForm({...returnForm, quantity: parseInt(e.target.value)})}
                   required
                 />
               </FormGroup>
               
               <FormGroup>
-                <Label>Stock</Label>
+                <Label>Fecha</Label>
                 <Input
-                  type="number"
-                  min="0"
-                  value={productForm.stock}
-                  onChange={(e) => setProductForm({...productForm, stock: parseInt(e.target.value)})}
+                  type="date"
+                  value={returnForm.date}
+                  onChange={(e) => setReturnForm({...returnForm, date: e.target.value})}
                   required
-                />
-              </FormGroup>
-              
-              <FormGroup>
-                <Label>Marca</Label>
-                <Input
-                  type="text"
-                  value={productForm.brand}
-                  onChange={(e) => setProductForm({...productForm, brand: e.target.value})}
-                  placeholder="Ej: Phillips"
-                />
-              </FormGroup>
-              
-              <FormGroup>
-                <Label>Modelo</Label>
-                <Input
-                  type="text"
-                  value={productForm.model}
-                  onChange={(e) => setProductForm({...productForm, model: e.target.value})}
-                  placeholder="Ej: HD7546"
                 />
               </FormGroup>
             </FormGrid>
             
             <FormGroup>
-              <Label>Descripción</Label>
+              <Label>Motivo de la Devolución</Label>
               <TextArea
-                value={productForm.description}
-                onChange={(e) => setProductForm({...productForm, description: e.target.value})}
-                placeholder="Descripción detallada del producto"
+                value={returnForm.reason}
+                onChange={(e) => setReturnForm({...returnForm, reason: e.target.value})}
+                placeholder="Describe el motivo de la devolución"
                 required
               />
             </FormGroup>
-            
-            <FormGroup>
-              <Label>Garantía</Label>
-              <Input
-                type="text"
-                value={productForm.warranty}
-                onChange={(e) => setProductForm({...productForm, warranty: e.target.value})}
-                placeholder="Ej: 12 meses"
-              />
-            </FormGroup>
-            
-            <FormGroup>
-              <Label>
-                <input
-                  type="checkbox"
-                  checked={productForm.featured}
-                  onChange={(e) => setProductForm({...productForm, featured: e.target.checked})}
-                  style={{ marginRight: '0.5rem' }}
-                />
-                Producto Destacado
-              </Label>
-            </FormGroup>
-
-            {/* Gestión de Imágenes */}
-            <FormContainer>
-              <h3>Imágenes del Producto</h3>
-              <FormGrid>
-                <FormGroup>
-                  <Label>URL de Imagen</Label>
-                  <Input
-                    type="url"
-                    value={newImageUrl}
-                    onChange={(e) => setNewImageUrl(e.target.value)}
-                    placeholder="https://ejemplo.com/imagen.jpg"
-                  />
-                </FormGroup>
-                <FormGroup>
-                  <Label>&nbsp;</Label>
-                  <Button type="button" onClick={addImage} disabled={!newImageUrl.trim()}>
-                    Agregar Imagen
-                  </Button>
-                </FormGroup>
-              </FormGrid>
-              
-              {productImages.length > 0 && (
-                <>
-                  <p style={{ marginTop: '1rem', color: '#666' }}>
-                    Haz clic en "Principal" para establecer la imagen principal del producto.
-                  </p>
-                  <ImagePreview>
-                    {productImages.map((image, index) => (
-                      <ImageItem key={index}>
-                        <PreviewImage 
-                          src={image.image_url} 
-                          alt={image.alt_text}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = 'https://via.placeholder.com/100x100?text=Error';
-                          }}
-                        />
-                        <RemoveImageButton onClick={() => removeImage(index)}>
-                          ×
-                        </RemoveImageButton>
-                        {image.is_primary && (
-                          <div style={{
-                            position: 'absolute',
-                            bottom: '5px',
-                            left: '5px',
-                            background: '#28a745',
-                            color: 'white',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            fontSize: '10px'
-                          }}>
-                            Principal
-                          </div>
-                        )}
-                        {!image.is_primary && (
-                          <button
-                            type="button"
-                            onClick={() => setPrimaryImage(index)}
-                            style={{
-                              position: 'absolute',
-                              bottom: '5px',
-                              left: '5px',
-                              background: '#007bff',
-                              color: 'white',
-                              border: 'none',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontSize: '10px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            Principal
-                          </button>
-                        )}
-                      </ImageItem>
-                    ))}
-                  </ImagePreview>
-                </>
-              )}
-            </FormContainer>
             
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '2rem' }}>
               <Button
                 type="button"
                 variant="secondary"
                 onClick={() => {
-                  resetForm();
-                  setShowProductModal(false);
+                  resetReturnForm();
+                  setShowReturnModal(false);
                 }}
               >
                 Cancelar
               </Button>
               <Button type="submit">
-                {editingProduct ? 'Actualizar Producto' : 'Crear Producto'}
+                Registrar Devolución
+              </Button>
+            </div>
+          </form>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal para Movimiento de Stock */}
+      <Modal show={showStockModal}>
+        <ModalContent>
+          <h2>📈 Registrar Movimiento de Stock</h2>
+          
+          <form onSubmit={handleStockMovement}>
+            <FormGrid>
+              <FormGroup>
+                <Label>Producto</Label>
+                <Select
+                  value={stockForm.product_id}
+                  onChange={(e) => setStockForm({...stockForm, product_id: parseInt(e.target.value)})}
+                  required
+                >
+                  <option value={0}>Seleccionar producto</option>
+                  {products.map(product => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} (Stock actual: {product.stock})
+                    </option>
+                  ))}
+                </Select>
+              </FormGroup>
+              
+              <FormGroup>
+                <Label>Tipo de Movimiento</Label>
+                <Select
+                  value={stockForm.movement_type}
+                  onChange={(e) => setStockForm({...stockForm, movement_type: e.target.value as 'in' | 'out' | 'adjustment'})}
+                  required
+                >
+                  <option value="in">Entrada (Agregar Stock)</option>
+                  <option value="out">Salida (Reducir Stock)</option>
+                  <option value="adjustment">Ajuste (Establecer Stock)</option>
+                </Select>
+              </FormGroup>
+              
+              <FormGroup>
+                <Label>
+                  {stockForm.movement_type === 'adjustment' ? 'Nuevo Stock' : 'Cantidad'}
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={stockForm.quantity}
+                  onChange={(e) => setStockForm({...stockForm, quantity: parseInt(e.target.value)})}
+                  required
+                />
+              </FormGroup>
+              
+              <FormGroup>
+                <Label>Fecha</Label>
+                <Input
+                  type="date"
+                  value={stockForm.date}
+                  onChange={(e) => setStockForm({...stockForm, date: e.target.value})}
+                  required
+                />
+              </FormGroup>
+            </FormGrid>
+            
+            <FormGroup>
+              <Label>Motivo</Label>
+              <TextArea
+                value={stockForm.reason}
+                onChange={(e) => setStockForm({...stockForm, reason: e.target.value})}
+                placeholder="Describe el motivo del movimiento"
+                required
+              />
+            </FormGroup>
+            
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '2rem' }}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  resetStockForm();
+                  setShowStockModal(false);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit">
+                Registrar Movimiento
               </Button>
             </div>
           </form>

@@ -79,12 +79,12 @@ DATABASES = {
 }
 # Google OAuth Configuration
 GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '437903201513-pati6campj9n38j2vgn63s2pkugohs7g.apps.googleusercontent.com')
-# ... existing code ...
+
 
 # Google OAuth Configuration
 GOOGLE_OAUTH2_CLIENT_ID = os.getenv('GOOGLE_OAUTH2_CLIENT_ID', '437903201513-pati6campj9n38j2vgn63s2pkugohs7g.apps.googleusercontent.com')
 
-# ... existing code ...
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -158,8 +158,6 @@ REST_FRAMEWORK = {
 }
 
 
-
-# ... existing code ...
 
 # CORS settings - Más específico para Transbank
 CORS_ALLOW_ALL_ORIGINS = True

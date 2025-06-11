@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-
+from django.db.models import Q
 from users.models import CustomUser
 from products.models import Product, Category, Review, ProductImage, ProductSpecification, ReviewHelpful
 from orders.models import Cart, CartItem, Order, OrderItem
@@ -151,6 +151,11 @@ class ProductSerializer(serializers.ModelSerializer):
     price = serializers.DecimalField(max_digits=10, decimal_places=2, coerce_to_string=False)
     price_clp = serializers.SerializerMethodField()
     
+    # Campos de promociones
+    has_promotion = serializers.SerializerMethodField()
+    promotion = serializers.SerializerMethodField()
+    discounted_price = serializers.SerializerMethodField()
+    
     class Meta:
         model = Product
         fields = [
@@ -158,12 +163,69 @@ class ProductSerializer(serializers.ModelSerializer):
             'stock', 'category', 'category_id', 'images', 'specifications',
             'reviews', 'avg_rating', 'total_reviews', 'average_rating', 'review_count', 
             'primary_image', 'featured', 'brand', 'model', 'warranty_months',
-            'created_at', 'updated_at'
+            'created_at', 'updated_at', 'has_promotion', 'promotion', 'discounted_price'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'price_clp']
+        read_only_fields = ['created_at', 'updated_at', 'price_clp', 'has_promotion', 'promotion', 'discounted_price']
     
     def get_price_clp(self, obj):
         return obj.get_price_clp
+    
+    def get_has_promotion(self, obj):
+        from promotions.models import Promotion
+        from django.utils import timezone
+        
+        active_promotions = Promotion.objects.filter(
+            status='active',
+            start_date__lte=timezone.now(),
+            end_date__gte=timezone.now()
+        ).filter(
+            Q(applicable_products=obj) | Q(applicable_categories=obj.category)
+        )
+        
+        return active_promotions.exists()
+    
+    def get_promotion(self, obj):
+        from promotions.models import Promotion
+        from django.utils import timezone
+        
+        active_promotion = Promotion.objects.filter(
+            status='active',
+            start_date__lte=timezone.now(),
+            end_date__gte=timezone.now()
+        ).filter(
+            Q(applicable_products=obj) | Q(applicable_categories=obj.category)
+        ).first()
+        
+        if active_promotion:
+            return {
+                'id': active_promotion.id,
+                'name': active_promotion.name,
+                'promotion_type': active_promotion.promotion_type,
+                'discount_percentage': active_promotion.discount_percentage,
+                'discount_amount': active_promotion.discount_amount
+            }
+        return None
+    
+    def get_discounted_price(self, obj):
+        from promotions.models import Promotion
+        from django.utils import timezone
+        
+        active_promotion = Promotion.objects.filter(
+            status='active',
+            start_date__lte=timezone.now(),
+            end_date__gte=timezone.now()
+        ).filter(
+            Q(applicable_products=obj) | Q(applicable_categories=obj.category)
+        ).first()
+        
+        if active_promotion:
+            if active_promotion.promotion_type == 'percentage':
+                discount = float(obj.price) * (float(active_promotion.discount_percentage) / 100)
+                return float(obj.price) - discount
+            elif active_promotion.promotion_type == 'fixed_amount':
+                return max(0, float(obj.price) - float(active_promotion.discount_amount))
+        
+        return None
     
     def create(self, validated_data):
         images_data = validated_data.pop('images', [])
@@ -245,24 +307,35 @@ class OrderSerializer(serializers.ModelSerializer):
             'created_at'
         ]
         read_only_fields = ['total', 'created_at']
+
 class ReportTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportType
         fields = ['id', 'name', 'description', 'is_active']
 
 class ReportSerializer(serializers.ModelSerializer):
-    report_type_name = serializers.CharField(source='report_type.get_name_display', read_only=True)
+    report_type_name = serializers.CharField(source='report_type.name', read_only=True)
     generated_by_name = serializers.CharField(source='generated_by.get_full_name', read_only=True)
     
     class Meta:
         model = Report
         fields = [
-            'id', 'report_type', 'report_type_name', 'generated_by', 
-            'generated_by_name', 'title', 'description', 'status',
-            'date_from', 'date_to', 'data', 'total_records',
-            'created_at', 'completed_at'
+            'id', 'report_type', 'report_type_name', 'title', 'description',
+            'date_from', 'date_to', 'generated_by', 'generated_by_name',
+            'generated_at', 'status', 'file_path', 'data'
         ]
-        read_only_fields = ['generated_by', 'status', 'data', 'total_records', 'completed_at']
+        read_only_fields = ['generated_at', 'file_path']
+    
+    def validate(self, data):
+        """Validaciones básicas para reportes"""
+        # Validar fechas si ambas están presentes
+        date_from = data.get('date_from')
+        date_to = data.get('date_to')
+        
+        if date_from and date_to and date_from > date_to:
+            raise serializers.ValidationError("La fecha de inicio no puede ser posterior a la fecha de fin.")
+        
+        return data
 
 class ReturnItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
@@ -290,10 +363,26 @@ class ReturnSerializer(serializers.ModelSerializer):
             'refund_amount', 'refund_processed', 'items'
         ]
         read_only_fields = [
-            'return_number', 'customer', 'approved_at', 'completed_at',
+            'return_number', 'approved_at', 'completed_at',
             'processed_by', 'refund_processed'
         ]
-
+    
+    def validate(self, data):
+        """Validaciones básicas"""
+        # Solo validar si ambos campos están presentes
+        order = data.get('order')
+        customer = data.get('customer')
+        
+        if order and customer:
+            # Verificar que la orden pertenece al cliente
+            try:
+                if hasattr(order, 'user') and order.user != customer:
+                    raise serializers.ValidationError("La orden no pertenece al cliente especificado.")
+            except AttributeError:
+                # Si no tiene el atributo user, continuar sin validar
+                pass
+        
+        return data
 class PromotionSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
     is_active_now = serializers.SerializerMethodField()

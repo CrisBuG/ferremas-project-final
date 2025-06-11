@@ -1,58 +1,18 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
-import { 
-  FaSearch, 
-  FaFilter, 
-  FaHeart, 
-  FaShoppingCart,
-  FaStar,
-  FaStarHalfAlt,
-  FaRegStar,
-  FaEye,
-  FaArrowLeft,
-  FaArrowRight,
-  FaTimes,
-  FaPlay,
-  FaPause,
-  FaTools,
-  FaShippingFast,
-  FaUserFriends,
-  FaShieldAlt
-} from 'react-icons/fa';
-
-import { productService, cartService, categoryService } from '../services/api';
+import { FaSearch, FaShoppingCart, FaHeart, FaEye, FaArrowLeft, FaArrowRight, FaStar, FaStarHalfAlt, FaRegStar, FaTools, FaShippingFast, FaUserFriends, FaShieldAlt } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
+import { productService, categoryService, cartService, promotionService } from '../services/api';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { toast } from 'react-toastify';
 
-// Interfaces
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  description: string;
-  stock: number;
-  category: {
-    id: number;
-    name: string;
-  };
-  images?: Array<{ image_url: string }>;
-  average_rating?: number;
-  review_count?: number;
-}
-
-interface Category {
-  id: number;
-  name: string;
-}
-
-// Animaciones mejoradas inspiradas en HomePage
+// Animaciones
 const fadeInUp = keyframes`
   from {
     opacity: 0;
-    transform: translateY(60px);
+    transform: translateY(30px);
   }
   to {
     opacity: 1;
@@ -60,37 +20,12 @@ const fadeInUp = keyframes`
   }
 `;
 
-const slideInLeft = keyframes`
-  from {
-    opacity: 0;
-    transform: translateX(-100px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-`;
-
-const slideInRight = keyframes`
-  from {
-    opacity: 0;
-    transform: translateX(100px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-`;
-
 const float = keyframes`
-  0% {
+  0%, 100% {
     transform: translateY(0px);
   }
   50% {
-    transform: translateY(-20px);
-  }
-  100% {
-    transform: translateY(0px);
+    transform: translateY(-10px);
   }
 `;
 
@@ -105,73 +40,68 @@ const pulse = keyframes`
     transform: scale(1);
   }
 `;
+// ... resto del código
 
-const shimmer = keyframes`
-  0% {
-    background-position: -1000px 0;
-  }
-  100% {
-    background-position: 1000px 0;
-  }
-`;
+// Interfaces
+interface Category {
+  id: number;
+  name: string;
+}
 
-const glow = keyframes`
-  0%, 100% {
-    box-shadow: 0 0 30px rgba(102, 126, 234, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 50px rgba(102, 126, 234, 0.8);
-  }
-`;
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+  description: string;
+  stock: number;
+  category: {
+    id: number;
+    name: string;
+  };
+  images?: Array<{ image_url: string }>;
+  average_rating?: number;
+  review_count?: number;
+  has_promotion?: boolean;
+  discounted_price?: number;
+  promotion?: {
+    id: number;
+    name: string;
+    promotion_type: string;
+    discount_percentage?: number;
+    discount_amount?: number;
+  };
+}
 
-const bounceIn = keyframes`
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
-  70% {
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-`;
+interface Promotion {
+  id: number;
+  name: string;
+  description: string;
+  promotion_type: 'percentage' | 'fixed_amount' | 'buy_x_get_y' | 'free_shipping';
+  status: 'active';
+  discount_percentage?: number;
+  discount_amount?: number;
+  applicable_products?: number[];
+  applicable_categories?: number[];
+}
 
-// Styled Components con diseño de HomePage
+// Styled Components
+
+
 const HomeContainer = styled.div`
-  width: 100%;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
 `;
 
-// Sección Hero inspirada en HomePage
 const HeroSection = styled.section`
-  height: 60vh;
+  position: relative;
+  height: 50vh;
+  min-height: 400px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
-  position: relative;
   overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><polygon fill="%23ffffff08" points="0,1000 1000,0 1000,1000"/></svg>');
-    background-size: cover;
-  }
 `;
 
 const ParticlesContainer = styled.div`
@@ -180,38 +110,32 @@ const ParticlesContainer = styled.div`
   left: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden;
-  z-index: 1;
 `;
 
-const Particle = styled.div<{ delay: number; duration: number; size: number }>`
+const Particle = styled.div<{ delay: number, duration: number, size: number }>`
   position: absolute;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
   width: ${props => props.size}px;
   height: ${props => props.size}px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  top: ${() => Math.random() * 100}%;
+  left: ${() => Math.random() * 100}%;
   animation: ${float} ${props => props.duration}s ease-in-out infinite;
   animation-delay: ${props => props.delay}s;
-  top: ${Math.random() * 100}%;
-  left: ${Math.random() * 100}%;
 `;
 
 const HeroContent = styled.div`
-  z-index: 2;
-  position: relative;
   text-align: center;
   color: white;
+  z-index: 1;
+  padding: 0 2rem;
 `;
 
 const HeroTitle = styled.h1`
-  font-size: 4rem;
-  margin-bottom: 1rem;
+  font-size: 3.5rem;
   font-weight: 800;
-  background: linear-gradient(45deg, #ffffff, #f0f0f0);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: ${fadeInUp} 1s ease-out;
+  margin-bottom: 1rem;
+  animation: ${fadeInUp} 0.8s ease-out;
   
   @media (max-width: 768px) {
     font-size: 2.5rem;
@@ -219,138 +143,105 @@ const HeroTitle = styled.h1`
 `;
 
 const HeroSubtitle = styled.p`
-  font-size: 1.3rem;
-  margin-bottom: 3rem;
-  max-width: 800px;
+  font-size: 1.2rem;
+  max-width: 600px;
+  margin: 0 auto;
   opacity: 0.9;
-  animation: ${fadeInUp} 1s ease-out 0.2s both;
+  animation: ${fadeInUp} 0.8s ease-out 0.2s both;
   
   @media (max-width: 768px) {
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
 `;
 
-// Sección de contenido principal
 const MainSection = styled.section`
-  padding: 6rem 2rem;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-  position: relative;
+  flex: 1;
+  padding: 4rem 2rem;
+  background: #f8f9fa;
+  
+  @media (max-width: 768px) {
+    padding: 2rem 1rem;
+  }
 `;
 
 const ContentContainer = styled.div`
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
 `;
 
-// Filtros con diseño mejorado
 const FiltersSection = styled.div`
-  background: white;
-  padding: 3rem 2rem;
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  margin-bottom: 4rem;
-  position: relative;
-  overflow: hidden;
-  animation: ${slideInRight} 1s ease-out;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #667eea, #764ba2);
-  }
+  margin-bottom: 3rem;
+  animation: ${fadeInUp} 0.8s ease-out;
 `;
 
 const FiltersGrid = styled.div`
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 2rem;
-  align-items: center;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
   
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
-    gap: 1.5rem;
   }
 `;
 
 const SearchContainer = styled.div`
   position: relative;
-  display: flex;
-  align-items: center;
+  width: 100%;
 `;
 
 const SearchIcon = styled(FaSearch)`
   position: absolute;
-  left: 1.5rem;
+  top: 50%;
+  left: 1rem;
+  transform: translateY(-50%);
   color: #667eea;
-  z-index: 2;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
 `;
 
 const SearchInput = styled.input`
   width: 100%;
-  padding: 1.2rem 1.5rem 1.2rem 3.5rem;
+  padding: 1rem 1rem 1rem 3rem;
   border: 2px solid #e2e8f0;
-  border-radius: 15px;
-  background: #f8fafc;
-  color: #2d3748;
-  font-size: 1.1rem;
-  transition: all 0.4s ease;
-  
-  &::placeholder {
-    color: #a0aec0;
-  }
+  border-radius: 10px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
   
   &:focus {
     outline: none;
     border-color: #667eea;
-    background: white;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    transform: translateY(-2px);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
   }
 `;
 
 const FilterSelect = styled.select`
-  padding: 1.2rem 1.5rem;
+  width: 100%;
+  padding: 1rem;
   border: 2px solid #e2e8f0;
-  border-radius: 15px;
-  background: #f8fafc;
-  color: #2d3748;
-  font-size: 1.1rem;
-  transition: all 0.4s ease;
-  cursor: pointer;
+  border-radius: 10px;
+  font-size: 1rem;
+  appearance: none;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path fill="none" d="M0 0h24v24H0z"/><path d="M12 15l-4.243-4.243 1.415-1.414L12 12.172l2.828-2.829 1.415 1.414z" fill="%23667eea"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1.5em;
+  transition: all 0.3s ease;
   
   &:focus {
     outline: none;
     border-color: #667eea;
-    background: white;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    transform: translateY(-2px);
-  }
-  
-  option {
-    background: white;
-    color: #2d3748;
-    padding: 0.5rem;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
   }
 `;
 
-const SortSelect = styled(FilterSelect)``;
+const SortSelect = styled(FilterSelect)`
+  // Heredamos los estilos de FilterSelect
+`;
 
-// Grid de productos mejorado
 const ProductsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 2rem;
-  margin-bottom: 4rem;
-  
-  @media (max-width: 768px) {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.5rem;
-  }
+  margin-bottom: 3rem;
 `;
 
 const ProductCard = styled.div`
@@ -358,46 +249,38 @@ const ProductCard = styled.div`
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  transition: all 0.4s ease;
+  transition: all 0.3s ease;
+  animation: ${fadeInUp} 0.8s ease-out both;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   position: relative;
-  animation: ${fadeInUp} 0.8s ease-out;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #667eea, #764ba2);
-    transform: scaleX(0);
-    transition: transform 0.3s ease;
-  }
   
   &:hover {
-    transform: translateY(-15px);
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
-  }
-  
-  &:hover::before {
-    transform: scaleX(1);
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
   }
 `;
 
 const ProductImageContainer = styled.div`
   position: relative;
-  height: 250px;
+  padding-top: 75%;
   overflow: hidden;
+  background: #f8f9fa;
 `;
 
 const ProductImage = styled.img`
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  transition: all 0.4s ease;
+  object-fit: contain;
+  padding: 1rem;
+  transition: transform 0.5s ease;
   
   ${ProductCard}:hover & {
-    transform: scale(1.1);
+    transform: scale(1.05);
   }
 `;
 
@@ -513,6 +396,29 @@ const ProductPrice = styled.div`
   color: #4CAF50;
   font-size: 1.6rem;
   font-weight: 800;
+`;
+
+const OriginalPrice = styled.div`
+  color: #999;
+  font-size: 1.1rem;
+  font-weight: 500;
+  text-decoration: line-through;
+  margin-bottom: 0.3rem;
+`;
+
+const PromotionBadge = styled.div`
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  z-index: 2;
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+  animation: ${float} 3s ease-in-out infinite;
 `;
 
 const ViewButton = styled(Link)`
@@ -742,6 +648,7 @@ const ProductsPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [addingToCart, setAddingToCart] = useState<number | null>(null);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   
   const itemsPerPage = 12;
 
@@ -754,6 +661,59 @@ const ProductsPage: React.FC = () => {
     }));
     setParticles(newParticles);
   }, []);
+
+  // Función para obtener promociones activas
+  const fetchActivePromotions = useCallback(async () => {
+    try {
+      const response = await promotionService.getActivePromotions();
+      setPromotions(response.data);
+    } catch (error: any) {
+      console.error('Error al cargar promociones:', error);
+      setPromotions([]);
+    }
+  }, []);
+
+  // Función para aplicar promociones a los productos
+  const applyPromotionsToProducts = useCallback((productList: Product[]) => {
+    if (promotions.length === 0) return productList;
+
+    return productList.map(product => {
+      // Buscar promociones aplicables a este producto
+      const applicablePromotions = promotions.filter(promotion => {
+        // Verificar si la promoción aplica directamente al producto
+        const appliesToProduct = promotion.applicable_products?.includes(product.id);
+        // Verificar si la promoción aplica a la categoría del producto
+        const appliesToCategory = promotion.applicable_categories?.includes(product.category.id);
+        return appliesToProduct || appliesToCategory;
+      });
+
+      if (applicablePromotions.length === 0) return product;
+
+      // Usar la primera promoción aplicable (podría mejorarse para usar la mejor)
+      const promotion = applicablePromotions[0];
+      let discountedPrice = product.price;
+
+      // Calcular el precio con descuento según el tipo de promoción
+      if (promotion.promotion_type === 'percentage' && promotion.discount_percentage) {
+        discountedPrice = product.price * (1 - (promotion.discount_percentage / 100));
+      } else if (promotion.promotion_type === 'fixed_amount' && promotion.discount_amount) {
+        discountedPrice = Math.max(0, product.price - promotion.discount_amount);
+      }
+
+      return {
+        ...product,
+        has_promotion: true,
+        discounted_price: discountedPrice,
+        promotion: {
+          id: promotion.id,
+          name: promotion.name,
+          promotion_type: promotion.promotion_type,
+          discount_percentage: promotion.discount_percentage,
+          discount_amount: promotion.discount_amount
+        }
+      };
+    });
+  }, [promotions]);
 
   // Función optimizada para obtener productos
   const fetchProducts = useCallback(async () => {
@@ -785,10 +745,13 @@ const ProductsPage: React.FC = () => {
       const data = response.data;
       
       if (data.results) {
-        setProducts(data.results);
+        // Aplicar promociones a los productos
+        const productsWithPromotions = applyPromotionsToProducts(data.results);
+        setProducts(productsWithPromotions);
         setTotalPages(Math.ceil(data.count / itemsPerPage));
       } else {
-        setProducts(Array.isArray(data) ? data : []);
+        const productsWithPromotions = applyPromotionsToProducts(Array.isArray(data) ? data : []);
+        setProducts(productsWithPromotions);
         setTotalPages(1);
       }
     } catch (error: any) {
@@ -798,7 +761,7 @@ const ProductsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, selectedCategory, sortBy, categories]);
+  }, [currentPage, searchTerm, selectedCategory, sortBy, categories, applyPromotionsToProducts]);
 
   // Función para obtener categorías
   const fetchCategories = useCallback(async () => {
@@ -814,7 +777,8 @@ const ProductsPage: React.FC = () => {
   // Efectos
   useEffect(() => {
     fetchCategories();
-  }, [fetchCategories]);
+    fetchActivePromotions();
+  }, [fetchCategories, fetchActivePromotions]);
 
   useEffect(() => {
     fetchProducts();
@@ -830,7 +794,14 @@ const ProductsPage: React.FC = () => {
 
     try {
       setAddingToCart(productId);
-      await cartService.addToCart(productId, 1);
+      // Buscar si el producto tiene una promoción
+      const product = products.find(p => p.id === productId);
+      if (product?.has_promotion && product.promotion) {
+        // Si tiene promoción, enviar el ID de la promoción
+        await cartService.addToCart(productId, 1, product.promotion.id);
+      } else {
+        await cartService.addToCart(productId, 1);
+      }
       toast.success('Producto agregado al carrito exitosamente');
     } catch (error: any) {
       console.error('Error al agregar al carrito:', error);
@@ -1088,6 +1059,13 @@ const ProductsPage: React.FC = () => {
               <ProductsGrid>
                 {products.map((product, index) => (
                   <ProductCard key={product.id} style={{ animationDelay: `${index * 0.1}s` }}>
+                    {product.has_promotion && (
+                      <PromotionBadge>
+                        {product.promotion?.promotion_type === 'percentage' 
+                          ? `${product.promotion.discount_percentage}% OFF` 
+                          : 'Oferta Especial'}
+                      </PromotionBadge>
+                    )}
                     <ProductImageContainer>
                       <ProductImage
                         src={product.images?.[0]?.image_url || 'https://via.placeholder.com/300x250/667eea/ffffff?text=Sin+Imagen'}
@@ -1129,7 +1107,16 @@ const ProductsPage: React.FC = () => {
                       )}
                       
                       <ProductFooter>
-                        <ProductPrice>{formatPrice(product.price)}</ProductPrice>
+                        <div>
+                          {product.has_promotion && product.discounted_price !== undefined && (
+                            <>
+                              <OriginalPrice>{formatPrice(product.price)}</OriginalPrice>
+                              <ProductPrice>{formatPrice(product.discounted_price)}</ProductPrice>
+                            </>
+                          ) || (
+                            <ProductPrice>{formatPrice(product.price)}</ProductPrice>
+                          )}
+                        </div>
                         <ViewButton to={`/products/${product.id}`}>
                           <FaEye />
                           Ver Detalles

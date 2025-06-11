@@ -13,7 +13,13 @@ interface CartItem {
     name: string;
     price: number;
     price_clp?: number;
-    image?: string;
+    images?: {
+      id: number;
+      image_url: string;
+      alt_text: string;
+      is_primary: boolean;
+      order: number;
+    }[];
   };
   quantity: number;
 }
@@ -660,7 +666,7 @@ const CartPage: React.FC = () => {
               return (
                 <CartItemCard key={item.id}>
                   <ProductImage 
-                    src={item.product.image || '/api/placeholder/100/100'} 
+                    src={item.product.images?.[0]?.image_url || '/api/placeholder/100/100'} 
                     alt={item.product.name}
                   />
                   

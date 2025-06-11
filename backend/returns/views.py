@@ -2,10 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Sum
 from .models import Return, ReturnItem
 from .serializers import ReturnSerializer, ReturnItemSerializer
-from orders.models import Order, OrderItem
 
 class ReturnViewSet(viewsets.ModelViewSet):
     serializer_class = ReturnSerializer
@@ -13,17 +11,18 @@ class ReturnViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role in ['admin', 'bodeguero']:
+        if hasattr(user, 'role') and user.role in ['admin', 'bodeguero']:
             return Return.objects.all()
         return Return.objects.filter(customer=user)
     
     def perform_create(self, serializer):
-        serializer.save(customer=self.request.user)
+        # El customer ya viene en los datos del serializer, no lo sobrescribir
+        serializer.save()
     
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
         """Aprobar devolución"""
-        if request.user.role not in ['admin', 'bodeguero']:
+        if not hasattr(request.user, 'role') or request.user.role not in ['admin', 'bodeguero']:
             return Response(
                 {'error': 'Sin permisos'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -42,7 +41,7 @@ class ReturnViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
         """Rechazar devolución"""
-        if request.user.role not in ['admin', 'bodeguero']:
+        if not hasattr(request.user, 'role') or request.user.role not in ['admin', 'bodeguero']:
             return Response(
                 {'error': 'Sin permisos'}, 
                 status=status.HTTP_403_FORBIDDEN

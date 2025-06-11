@@ -3,8 +3,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
+from django.db.models import Q  # Importación añadida
 from .models import Promotion, Coupon, PromotionUsage
 from .serializers import PromotionSerializer, CouponSerializer, PromotionUsageSerializer
+
 
 class PromotionViewSet(viewsets.ModelViewSet):
     serializer_class = PromotionSerializer
@@ -38,8 +40,8 @@ class PromotionViewSet(viewsets.ModelViewSet):
         product_id = request.query_params.get('product_id')
         if product_id:
             promotions = promotions.filter(
-                models.Q(applicable_products__id=product_id) |
-                models.Q(applicable_categories__products__id=product_id)
+                Q(applicable_products__id=product_id) |  # Usando Q en lugar de models.Q
+                Q(applicable_categories__products__id=product_id)  # Usando Q en lugar de models.Q
             ).distinct()
         
         serializer = self.get_serializer(promotions, many=True)
@@ -152,4 +154,4 @@ class PromotionUsageViewSet(viewsets.ReadOnlyModelViewSet):
         user = self.request.user
         if user.role in ['admin', 'contador']:
             return PromotionUsage.objects.all()
-        return PromotionUsage.objects.filter(customer=user)
+        return PromotionUsage.objects.filter(user=user)

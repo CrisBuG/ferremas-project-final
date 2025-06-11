@@ -136,17 +136,26 @@ export const categoryService = {
   deleteCategory: (id: number) => apiClient.delete(`/categories/${id}/`),
 };
 
-// Cart Service - CORREGIDO para usar endpoints correctos
+
+
+// Cart Service - CORREGIDO para usar endpoints correctos y añadir soporte para promociones
 export const cartService = {
-  getCart: () => apiClient.get('/cart/get_cart/'),  // Changed from my_cart to get_cart
-  addToCart: (productId: number, quantity: number) => 
-    apiClient.post('/cart/add_item/', { product_id: productId, quantity }),
+  getCart: () => apiClient.get('/cart/get_cart/'),
+  addToCart: (productId: number, quantity: number, promotionId?: number) => {
+    const data: any = { product_id: productId, quantity };
+    if (promotionId) {
+      data.promotion_id = promotionId;
+    }
+    return apiClient.post('/cart/add_item/', data);
+  },
   updateCartItem: (itemId: number, quantity: number) => 
     apiClient.patch('/cart/update_item/', { cart_item_id: itemId, quantity }),
   removeFromCart: (itemId: number) => 
-    apiClient.delete('/cart/remove_item/', { data: { cart_item_id: itemId } }),  // Changed to DELETE method
-  clearCart: () => apiClient.delete('/cart/clear_cart/'),  // Changed to DELETE method and correct endpoint
+    apiClient.delete('/cart/remove_item/', { data: { cart_item_id: itemId } }),
+  clearCart: () => apiClient.delete('/cart/clear_cart/'),
 };
+
+
 
 // Order Service - CORRECTED to match backend endpoints
 export const orderService = {
@@ -209,4 +218,23 @@ paymentApiClient.interceptors.request.use(
     return Promise.reject(error);
   }
 );
+
+
+// Promotion Service
+export const promotionService = {
+  getPromotions: () => apiClient.get('/promotions/promotions/'),
+  getActivePromotions: (productId?: number) => {
+    const url = productId 
+      ? `/promotions/promotions/active_promotions/?product_id=${productId}`
+      : '/promotions/promotions/active_promotions/';
+    return apiClient.get(url);
+  },
+  getPromotion: (id: number) => apiClient.get(`/promotions/promotions/${id}/`),
+  createPromotion: (promotionData: any) => apiClient.post('/promotions/promotions/', promotionData),
+  updatePromotion: (id: number, promotionData: any) => apiClient.put(`/promotions/promotions/${id}/`, promotionData),
+  deletePromotion: (id: number) => apiClient.delete(`/promotions/promotions/${id}/`),
+  activatePromotion: (id: number) => apiClient.post(`/promotions/promotions/${id}/activate/`),
+  pausePromotion: (id: number) => apiClient.post(`/promotions/promotions/${id}/pause/`),
+};
+
 

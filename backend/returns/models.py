@@ -1,8 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from orders.models import Order, OrderItem
-from products.models import Product
 from django.utils import timezone
+from orders.models import Order, OrderItem
+from products.models import Product  # Agregar esta importación
 
 User = get_user_model()
 
@@ -23,7 +23,7 @@ class Return(models.Model):
         ('otro', 'Otro'),
     )
     
-    return_number = models.CharField(max_length=20, unique=True)
+    return_number = models.CharField(max_length=20, unique=True, blank=True)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='returns')
     customer = models.ForeignKey(User, on_delete=models.CASCADE)
     reason = models.CharField(max_length=20, choices=REASON_CHOICES)
@@ -48,11 +48,26 @@ class Return(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.return_number:
-            self.return_number = f"RET-{timezone.now().strftime('%Y%m%d')}-{self.pk or '000'}"
+            # Generar número secuencial basado en la fecha actual
+            today = timezone.now().date()
+            last_return = Return.objects.filter(
+                requested_at__date=today
+            ).order_by('-id').first()
+            
+            if last_return and last_return.return_number:
+                try:
+                    last_num = int(last_return.return_number.split('-')[-1])
+                    next_num = last_num + 1
+                except (ValueError, IndexError):
+                    next_num = 1
+            else:
+                next_num = 1
+                
+            self.return_number = f"RET-{today.strftime('%Y%m%d')}-{next_num:03d}"
         super().save(*args, **kwargs)
     
     def __str__(self):
-        return f"Devolución {self.return_number} - {self.order.order_number}"
+        return f"Devolución {self.return_number} - {self.order.order_number if hasattr(self.order, 'order_number') else self.order.id}"
     
     def approve(self, processed_by):
         self.status = 'aprobada'
@@ -67,8 +82,9 @@ class Return(models.Model):
         
         # Restaurar stock de productos devueltos
         for item in self.items.all():
-            item.product.stock += item.quantity
-            item.product.save()
+            if hasattr(item, 'product') and item.product:
+                item.product.stock += item.quantity
+                item.product.save()
     
     class Meta:
         verbose_name = 'Devolución'
@@ -87,15 +103,12 @@ class ReturnItem(models.Model):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     refund_amount = models.DecimalField(max_digits=10, decimal_places=2)
     
-    def save(self, *args, **kwargs):
-        if not self.unit_price:
-            self.unit_price = self.order_item.price
-        if not self.refund_amount:
-            self.refund_amount = self.unit_price * self.quantity
-        super().save(*args, **kwargs)
+    @property
+    def product_name(self):
+        return self.product.name if self.product else ''
     
     def __str__(self):
-        return f"{self.quantity}x {self.product.name}"
+        return f"Item devolución {self.return_request.return_number} - {self.product.name}"
     
     class Meta:
         verbose_name = 'Item de Devolución'

@@ -774,12 +774,12 @@ const ProfilePage: React.FC = () => {
           {/* Header del perfil */}
           <ProfileHeader>
             <ProfileImageContainer onClick={() => fileInputRef.current?.click()}>
-              <ProfileImage 
-                src={user.profile_picture || '/api/placeholder/120/120'} 
-                alt="Foto de perfil"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = '/api/placeholder/120/120';
+            <ProfileImage 
+              src={user.profile_picture || 'https://via.placeholder.com/120x120/667eea/ffffff?text=Usuario'} 
+              alt="Foto de perfil"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = 'https://via.placeholder.com/120x120/667eea/ffffff?text=Usuario';
                 }}
               />
               <ImageOverlay>
