@@ -82,6 +82,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Hacer login - esto establecerá la cookie de sesión
       const response = await authService.login(email, password);
       
+      // AGREGAR LOGGING TEMPORAL
+      console.log('🔍 Respuesta completa del login:', response);
+      console.log('🔍 Datos de la respuesta:', response.data);
+      console.log('🔍 ¿Tiene token?:', response.data.token);
+      
+      // ✅ AGREGAR: Guardar token si viene en la respuesta
+      if (response.data.success && response.data.token) {
+        localStorage.setItem('access_token', response.data.token);
+        console.log('✅ Token guardado:', response.data.token);
+      } else {
+        console.log('❌ No se encontró token en la respuesta');
+      }
+      
       // Obtener datos del usuario después del login exitoso
       const userResponse = await authService.getCurrentUser();
       setUser(userResponse.data);
@@ -90,21 +103,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw error;
     }
   };
-
-  // Función para cerrar sesión - MODIFICADA
-  const logout = async () => {
-    try {
-      await authService.logout();
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    } finally {
-      setUser(null);
-      window.location.href = '/login';
-    }
-  };
-
-  // Función para actualizar datos del usuario
-  // ... existing code ...
+  
+// Función para cerrar sesión - MODIFICADA
+const logout = async () => {
+  try {
+    await authService.logout();
+  } catch (error) {
+    console.error('Error al cerrar sesión:', error);
+  } finally {
+    // ✅ AGREGAR: Eliminar token del localStorage
+    localStorage.removeItem('access_token');
+    setUser(null);
+    // Redirigir al login
+    window.location.href = '/login';
+  }
+};
 
 // Función para actualizar datos del usuario
   const updateUser = async (userData: Partial<User>) => {

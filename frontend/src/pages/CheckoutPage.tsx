@@ -654,59 +654,22 @@ const CheckoutPage: React.FC = () => {
     }, 0);
   };
 
-  const simulatePaymentConfirmation = async (orderId: number) => {
+  const handleIntegrationPayment = async (orderId: number) => {
     try {
-      const token = localStorage.getItem('access_token');
+      const response = await transbankService.createIntegrationTransaction({
+        order_id: orderId,
+        amount: Math.round(calculateTotalCLP())
+      });
       
-      if (!token) {
-        setError('No estás autenticado. Por favor, inicia sesión.');
-        return;
-      }
-      
-      // Debug: Verificar el token
-      console.log('Token encontrado:', !!token);
-      console.log('Longitud del token:', token.length);
-      console.log('Primeros 50 caracteres:', token.substring(0, 50));
-      
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/simulate-confirmation/`,
-        { order_id: orderId },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      console.log('Respuesta exitosa:', response.data);
-      
-      if (response.status === 200) {
-        setSuccess('¡Pago simulado exitosamente! Redirigiendo...');
-        setTimeout(() => {
-          navigate('/orders');
-        }, 2000);
+      if (response.data.success && response.data.url) {
+        // Redirigir a Transbank con dinero ficticio
+        window.location.href = response.data.url;
+      } else {
+        setError('Error al iniciar pago de integración');
       }
     } catch (error) {
-      console.error('Error completo:', error);
-      const axiosError = error as any;
-      
-      // Debug detallado del error
-      if (axiosError.response) {
-        console.log('Status del error:', axiosError.response.status);
-        console.log('Data del error:', axiosError.response.data);
-        console.log('Headers del error:', axiosError.response.headers);
-      }
-      
-      if (axiosError.response?.status === 401) {
-        console.log('Error 401 - Token inválido o expirado');
-        setError('Sesión expirada. Por favor, inicia sesión nuevamente.');
-        // Limpiar tokens inválidos
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-      } else {
-        setError('Error al procesar el pago simulado');
-      }
+      console.error('Error en pago de integración:', error);
+      setError('Error al procesar el pago de integración');
     }
   };
   // Función para manejar el envío del formulario
@@ -737,8 +700,8 @@ const CheckoutPage: React.FC = () => {
       }
       
       if (simulationMode) {
-        // Modo simulación
-        await simulatePaymentConfirmation(orderId);
+        // Usar integración con dinero ficticio
+        await handleIntegrationPayment(orderId);
       } else {
         // Modo real con Transbank
         const paymentResponse: AxiosResponse<PaymentResponse> = await transbankService.createTransaction({

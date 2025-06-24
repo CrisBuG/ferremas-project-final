@@ -19,6 +19,7 @@ import WarehouseDashboardPage from './pages/WarehouseDashboardPage';
 import AccountantDashboardPage from './pages/AccountantDashboardPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
+import PaymentIntegrationConfirmationPage from './pages/PaymentIntegrationConfirmationPage';
 
 function App() {
   return (
@@ -65,6 +66,14 @@ function App() {
                 element={
                   <ErrorBoundary>
                     <ProtectedRoute element={<PaymentConfirmationPage />} />
+                  </ErrorBoundary>
+                } 
+              />
+              <Route 
+                path="/payment-integration-confirmation" 
+                element={
+                  <ErrorBoundary>
+                    <ProtectedRoute element={<PaymentIntegrationConfirmationPage />} />
                   </ErrorBoundary>
                 } 
               />

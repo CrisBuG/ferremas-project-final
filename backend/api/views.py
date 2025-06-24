@@ -2,6 +2,7 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login
 from django.views import View
 from users.models import CustomUser  
@@ -88,15 +89,19 @@ class UserViewSet(viewsets.ModelViewSet):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
-    email = request.data.get('email')      # Cambiado de 'username' a 'email'
+    email = request.data.get('email')
     password = request.data.get('password')
     
     if email and password:
-        user = authenticate(username=email, password=password)  # Django usa 'username' internamente
+        user = authenticate(username=email, password=password)
         if user:
             login(request, user)
+            # Generar o obtener token
+            token, created = Token.objects.get_or_create(user=user)
+            
             return Response({
                 'success': True,
+                'token': token.key,  # ✅ Agregar token
                 'user': {
                     'id': user.id,
                     'username': user.username,
@@ -807,3 +812,15 @@ def simulate_payment_confirmation(request):
             'order_id': order.id,
             'status': 'failed'
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout_view(request):
+    try:
+        # Eliminar token del usuario
+        request.user.auth_token.delete()
+    except:
+        pass
+    logout(request)
+    return Response({'success': True, 'message': 'Logout exitoso'})

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { 
   FaUser, 
@@ -504,10 +504,17 @@ const HiddenFileInput = styled.input`
 const ProfilePage: React.FC = () => {
   const { user, updateUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Estados
-  const [activeTab, setActiveTab] = useState('personal');
+  const [activeTab, setActiveTab] = useState(() => {
+    // Verificar si se pasó un estado con activeTab
+    if (location.state && (location.state as any).activeTab) {
+      return (location.state as any).activeTab;
+    }
+    return 'personal';
+  });
   const [loading, setLoading] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);

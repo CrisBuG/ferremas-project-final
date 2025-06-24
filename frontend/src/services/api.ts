@@ -10,9 +10,14 @@ const apiClient = axios.create({
   withCredentials: true, // IMPORTANTE: Esto permite el envío de cookies de sesión
 });
 
-// Interceptor para agregar CSRF token y manejar FormData
+// Interceptor para agregar CSRF token, JWT token y manejar FormData
 apiClient.interceptors.request.use(
   async (config) => {
+    const token = localStorage.getItem('access_token'); // ❌ Nunca se guarda
+    if (token) {
+      config.headers.Authorization = `Token ${token}`;
+    }
+    
     // Obtener CSRF token si es necesario
     try {
       const csrfResponse = await fetch('http://localhost:8000/api/auth/csrf/', {
@@ -45,21 +50,21 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
-      // No redirigir automáticamente si estamos en páginas de pago simulado
-      // o si ya estamos en login
-      const currentPath = window.location.pathname;
-      const isPaymentSimulation = currentPath.includes('/payment-simulation') || 
-                                 currentPath.includes('/checkout') ||
-                                 currentPath.includes('/payment-confirmation') ||
-                                 error.config?.url?.includes('/simulate-confirmation/');
-      
-      if (!currentPath.includes('/login') && !isPaymentSimulation) {
-        window.location.href = '/login';
-      }
+  if (error.response?.status === 401) {
+    // No redirigir automáticamente si estamos en páginas de pago simulado
+    // o si ya estamos en login
+    const currentPath = window.location.pathname;
+    const isPaymentSimulationPage = 
+      error.config?.url?.includes('/simulate-confirmation/') ||
+      error.config?.url?.includes('/payments/transbank/simulation/');
+    
+    if (!currentPath.includes('/login') && !isPaymentSimulationPage) {
+      window.location.href = '/login';
     }
-    return Promise.reject(error);
   }
+  return Promise.reject(error);
+}
+
 );
 
 
@@ -181,6 +186,20 @@ export const transbankService = {
   createTransaction: (transactionData: any) => apiClient.post('/payments/transbank/create/', transactionData),
   confirmTransaction: (token: string) => apiClient.post('/payments/transbank/confirm/', { token }),
   getTransactionStatus: (token: string) => apiClient.get(`/payments/transbank/status/${token}/`),
+  
+  // Funciones para simulación con Transbank real
+  createSimulationTransaction: (transactionData: any) => 
+    apiClient.post('/payments/transbank/simulation/create/', transactionData),
+  confirmSimulationTransaction: (token: string) => 
+    apiClient.post('/payments/transbank/simulation/confirm/', { token_ws: token }),
+  getSimulationTransactionStatus: (token: string) => 
+    apiClient.get(`/payments/transbank/simulation/status/${token}/`),
+  
+  // Funciones para integración con dinero ficticio
+  createIntegrationTransaction: (transactionData: any) => 
+    apiClient.post('/payments/transbank/integration/create/', transactionData),
+  confirmIntegrationTransaction: (token: string) => 
+    apiClient.post('/payments/transbank/integration/confirm/', { token_ws: token }),
 };
 
 // Exchange Rate Service
