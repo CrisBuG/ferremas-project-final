@@ -87,6 +87,17 @@ class Order(models.Model):
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='transbank')
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pendiente')
     
+    DELIVERY_METHOD_CHOICES = (
+        ('domicilio', 'Entrega a Domicilio'),
+        ('retiro', 'Retiro en Tienda'),
+    )
+    
+    # Agregar este campo después de payment_status
+    delivery_method = models.CharField(
+        max_length=20, 
+        choices=DELIVERY_METHOD_CHOICES, 
+        default='domicilio'
+    )
     def __str__(self):
         return f"Orden #{self.id} - {self.user.email}"
     

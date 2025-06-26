@@ -659,6 +659,63 @@ const NoReviews = styled.div`
   border-radius: 10px;
 `;
 
+const DeliverySelector = styled.div`
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+`;
+
+const DeliveryOption = styled.label<{ selected: boolean }>`
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  background: ${props => props.selected ? '#667eea' : '#ffffff'};
+  color: ${props => props.selected ? '#ffffff' : '#2c3e50'};
+  border: 2px solid ${props => props.selected ? '#667eea' : '#e9ecef'};
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    border-color: #667eea;
+    background: ${props => props.selected ? '#667eea' : '#f8f9fa'};
+  }
+  
+  input {
+    margin-right: 0.75rem;
+  }
+`;
+
+const DeliveryTitle = styled.h4`
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+  font-size: 1.1rem;
+  font-weight: 600;
+`;
+
+const CompanyInfo = styled.div`
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #e8f4fd;
+  border-radius: 6px;
+  border-left: 4px solid #667eea;
+`;
+
+const CompanyTitle = styled.h5`
+  margin: 0 0 0.75rem 0;
+  color: #2c3e50;
+  font-weight: 600;
+`;
+
+const CompanyDetail = styled.p`
+  margin: 0.25rem 0;
+  color: #5a6c7d;
+  font-size: 0.9rem;
+`;
+
 // Nuevos estilos para el formulario de reseñas
 const ReviewForm = styled.div`
   background: white;
@@ -901,6 +958,7 @@ const ProductDetailPage: React.FC = () => {
   const [newReviewRating, setNewReviewRating] = useState(0);
   const [newReviewComment, setNewReviewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [deliveryMethod, setDeliveryMethod] = useState<'envio' | 'retiro'>('envio');
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -1050,8 +1108,8 @@ const ProductDetailPage: React.FC = () => {
         quantity, 
         product.has_promotion && product.promotion ? product.promotion.id : undefined
       );
-      // Redirigir directamente al checkout en lugar del carrito
-      navigate('/checkout');
+      // Pasar el método de entrega al checkout
+      navigate(`/checkout?delivery=${deliveryMethod}`);
     } catch (error: any) {
       console.error('Error al procesar compra:', error);
       alert('Error al procesar la compra');
@@ -1269,6 +1327,57 @@ const ProductDetailPage: React.FC = () => {
                     </QuantityButton>
                   </QuantityControls>
                 </QuantitySection>
+                
+                <DeliverySelector>
+                  <DeliveryTitle>🚚 Modalidad de Entrega</DeliveryTitle>
+                  
+                  <DeliveryOption 
+                    selected={deliveryMethod === 'envio'}
+                    onClick={() => setDeliveryMethod('envio')}
+                  >
+                    <input 
+                      type="radio" 
+                      name="delivery" 
+                      value="envio" 
+                      checked={deliveryMethod === 'envio'}
+                      onChange={() => setDeliveryMethod('envio')}
+                    />
+                    <div>
+                      <strong>📦 Envío a Domicilio</strong>
+                      <br />
+                      <small>Recibe tu pedido en la comodidad de tu hogar</small>
+                    </div>
+                  </DeliveryOption>
+                  
+                  <DeliveryOption 
+                    selected={deliveryMethod === 'retiro'}
+                    onClick={() => setDeliveryMethod('retiro')}
+                  >
+                    <input 
+                      type="radio" 
+                      name="delivery" 
+                      value="retiro" 
+                      checked={deliveryMethod === 'retiro'}
+                      onChange={() => setDeliveryMethod('retiro')}
+                    />
+                    <div>
+                      <strong>🏪 Retiro en Tienda</strong>
+                      <br />
+                      <small>Retira tu pedido en nuestra tienda física</small>
+                    </div>
+                  </DeliveryOption>
+                  
+                  {deliveryMethod === 'retiro' && (
+                    <CompanyInfo>
+                      <CompanyTitle>📍 Información de la Tienda</CompanyTitle>
+                      <CompanyDetail><strong>Nombre:</strong> Ferremas - Ferretería Industrial</CompanyDetail>
+                      <CompanyDetail><strong>Dirección:</strong> Av. Industrial 1234, Santiago, Chile</CompanyDetail>
+                      <CompanyDetail><strong>Teléfono:</strong> +56 2 2345 6789</CompanyDetail>
+                      <CompanyDetail><strong>Email:</strong> contacto@ferremas.cl</CompanyDetail>
+                      <CompanyDetail><strong>Horarios:</strong> Lunes a Viernes 8:00 - 18:00, Sábados 9:00 - 14:00</CompanyDetail>
+                    </CompanyInfo>
+                  )}
+                </DeliverySelector>
                 
                 <ActionButtons>
                   <PrimaryButton 

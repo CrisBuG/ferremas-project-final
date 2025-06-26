@@ -12,7 +12,7 @@ from django.views.decorators.cache import never_cache
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.db import transaction
-from django.db.models import Q, Avg, Count
+from django.db.models import Q, Avg, Count, Sum
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import check_password
 from google.oauth2 import id_token
@@ -359,12 +359,50 @@ def admin_stats_view(request):
             'error': 'No tienes permisos para acceder a estas estadísticas'
         }, status=status.HTTP_403_FORBIDDEN)
     
+    # Calcular ingresos totales de órdenes pagadas
+    total_revenue = Order.objects.filter(
+        payment_status='pagada'
+    ).aggregate(total=Sum('total'))['total'] or 0
+
+    # Estadísticas por estado de órdenes
+    orders_by_status = {
+        'pendiente': Order.objects.filter(status='pendiente').count(),
+        'completado': Order.objects.filter(status='entregada').count(),
+        'cancelado': Order.objects.filter(status='cancelada').count(),
+    }
+    
     stats = {
         'total_users': CustomUser.objects.count(),
         'total_products': Product.objects.count(),
         'total_orders': Order.objects.count(),
+        'total_revenue': float(total_revenue),
+        'orders_by_status': orders_by_status,
         'pending_orders': Order.objects.filter(status='pendiente').count(),
-        'completed_orders': Order.objects.filter(status='completado').count(),
+        'completed_orders': Order.objects.filter(status='entregada').count(),
+    }
+    
+    return Response(stats)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def accountant_stats_view(request):
+    # Aquí podrías añadir una verificación de rol si tienes un grupo 'Contador'
+    # if not request.user.groups.filter(name='Contador').exists():
+    #     return Response({'error': 'Acceso denegado'}, status=status.HTTP_403_FORBIDDEN)
+
+    total_revenue = Order.objects.filter(payment_status='pagada').aggregate(total=Sum('total'))['total'] or 0
+    pending_orders = Order.objects.filter(status='pendiente').count()
+    completed_orders = Order.objects.filter(status='entregada').count()
+    total_products = Product.objects.count()
+    total_orders = Order.objects.count()
+
+    stats = {
+        'total_revenue': float(total_revenue),
+        'pending_orders': pending_orders,
+        'completed_orders': completed_orders,
+        'total_products': total_products,
+        'total_orders': total_orders,
     }
     
     return Response(stats)

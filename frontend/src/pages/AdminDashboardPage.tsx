@@ -748,7 +748,9 @@ const AdminDashboardPage: FC = () => {
 
   const loadStats = async () => {
     try {
+      console.log('Cargando estadísticas...'); // Log temporal
       const response: AxiosResponse<AdminStats> = await apiClient.get('/admin/stats/');
+      console.log('Estadísticas recibidas:', response.data); // Log temporal
       setStats(response.data);
     } catch (err) {
       console.error('Error loading stats:', err);

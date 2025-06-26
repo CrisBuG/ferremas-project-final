@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FaCreditCard, FaUser, FaMapMarkerAlt, FaPhone, FaShoppingCart, FaSpinner, FaCopy, FaEdit, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
@@ -14,7 +14,7 @@ interface Product {
   name: string;
   price: number;
   price_clp?: number;
-  primary_image?: string; // Cambiado de 'image' a 'primary_image'
+  primary_image?: string;
 }
 
 interface CartItem {
@@ -462,6 +462,10 @@ const DATA_EXPIRY_TIME = 24 * 60 * 60 * 1000; // 24 horas
 const CheckoutPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const deliveryMethod = searchParams.get('delivery') || 'envio';
+  const couponCode = searchParams.get('coupon');
   
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
@@ -471,6 +475,8 @@ const CheckoutPage: React.FC = () => {
   const [dollarRate, setDollarRate] = useState<number>(850);
   const [dataSource, setDataSource] = useState<'profile' | 'localStorage' | 'empty'>('empty');
   const [simulationMode, setSimulationMode] = useState<boolean>(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponDiscount, setCouponDiscount] = useState(0);
   
   const [shippingData, setShippingData] = useState<ShippingFormData>({
     shipping_address: '',
@@ -619,16 +625,15 @@ const CheckoutPage: React.FC = () => {
   };
 
   // Función para cargar el tipo de cambio
-    // Función para cargar el tipo de cambio
-    const loadExchangeRate = async () => {
-      try {
-        const response = await exchangeRateService.getExchangeRate();
-        setDollarRate(response.data.rate || response.data); // Acceder a la propiedad correcta
-      } catch (error) {
-        console.error('Error loading exchange rate:', error);
-        // Mantener el valor por defecto si falla
-      }
-    };
+  const loadExchangeRate = async () => {
+    try {
+      const response = await exchangeRateService.getExchangeRate();
+      setDollarRate(response.data.rate || response.data);
+    } catch (error) {
+      console.error('Error loading exchange rate:', error);
+      // Mantener el valor por defecto si falla
+    }
+  };
 
   // Función para manejar cambios en el formulario
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -654,11 +659,19 @@ const CheckoutPage: React.FC = () => {
     }, 0);
   };
 
+  // Función para calcular el total final con descuentos
+  const calculateFinalTotal = () => {
+    const subtotal = calculateTotalCLP();
+    const discount = appliedCoupon ? subtotal * (appliedCoupon.discount_percentage / 100) : 0;
+    setCouponDiscount(discount);
+    return subtotal - discount;
+  };
+
   const handleIntegrationPayment = async (orderId: number) => {
     try {
       const response = await transbankService.createIntegrationTransaction({
         order_id: orderId,
-        amount: Math.round(calculateTotalCLP())
+        amount: Math.round(calculateFinalTotal())
       });
       
       if (response.data.success && response.data.url) {
@@ -672,6 +685,7 @@ const CheckoutPage: React.FC = () => {
       setError('Error al procesar el pago de integración');
     }
   };
+
   // Función para manejar el envío del formulario
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -689,7 +703,9 @@ const CheckoutPage: React.FC = () => {
       // Crear la orden
       const orderData = {
         ...shippingData,
-        total_amount: calculateTotalCLP()
+        total_amount: calculateFinalTotal(),
+        delivery_method: deliveryMethod,
+        coupon_code: appliedCoupon?.code
       };
       
       const orderResponse: AxiosResponse<OrderResponse> = await orderService.createOrder(orderData);
@@ -706,7 +722,7 @@ const CheckoutPage: React.FC = () => {
         // Modo real con Transbank
         const paymentResponse: AxiosResponse<PaymentResponse> = await transbankService.createTransaction({
           order_id: orderId,
-          amount: Math.round(calculateTotalCLP())
+          amount: Math.round(calculateFinalTotal())
         });
         
         if (paymentResponse.data.url) {
@@ -778,6 +794,16 @@ const CheckoutPage: React.FC = () => {
       loadSavedShippingData();
     }
   }, [user, navigate]);
+
+  useEffect(() => {
+    // Aplicar cupón si viene en la URL
+    if (couponCode === 'FERR20') {
+      setAppliedCoupon({
+        code: couponCode,
+        discount_percentage: 20
+      });
+    }
+  }, [couponCode]);
 
   if (loading) {
     return (
@@ -1037,13 +1063,23 @@ const CheckoutPage: React.FC = () => {
                     <span>Subtotal (CLP):</span>
                     <span>{formatPrice(calculateTotalCLP())}</span>
                   </TotalRow>
+                  {appliedCoupon && (
+                    <TotalRow>
+                      <span>Descuento ({appliedCoupon.code} - {appliedCoupon.discount_percentage}%):</span>
+                      <span style={{ color: '#27ae60' }}>-{formatPrice(couponDiscount)}</span>
+                    </TotalRow>
+                  )}
                   <TotalRow>
-                    <span>Envío:</span>
-                    <span>Gratis</span>
+                    <span>Método de entrega:</span>
+                    <span>{deliveryMethod === 'retiro' ? 'Retiro en tienda' : 'Envío a domicilio'}</span>
+                  </TotalRow>
+                  <TotalRow>
+                    <span>Costo de envío:</span>
+                    <span>{deliveryMethod === 'retiro' ? 'Gratis' : 'Gratis'}</span>
                   </TotalRow>
                   <TotalRow className="final">
                     <span>Total:</span>
-                    <span>{formatPrice(calculateTotalCLP())}</span>
+                    <span>{formatPrice(calculateFinalTotal())}</span>
                   </TotalRow>
                 </TotalSection>
               </>

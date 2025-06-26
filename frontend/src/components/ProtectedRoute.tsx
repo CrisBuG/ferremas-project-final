@@ -3,40 +3,30 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 interface ProtectedRouteProps {
-  element: React.ReactElement;
-  allowedRoles?: string[];
+  children: React.ReactNode;
+  requiredRole?: 'is_staff';
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ element, allowedRoles }) => {
-  const { user, isAuthenticated, isLoading } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
+  const { user, loading, hasPermission } = useAuth();
 
-  // Mostrar carga mientras se verifica la autenticación
-  if (isLoading) {
+  if (loading) {
     return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        fontSize: '1.2rem'
-      }}>
-        Cargando...
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-lg">Cargando...</div>
       </div>
     );
   }
 
-  // Redirigir al login si no está autenticado
-  if (!isAuthenticated || !user) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  // Verificar acceso basado en roles si se especifican allowedRoles
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  if (requiredRole && !hasPermission(requiredRole)) {
     return <Navigate to="/" replace />;
   }
 
-  // Renderizar el componente protegido
-  return element;
+  return <>{children}</>;
 };
 
 export default ProtectedRoute;

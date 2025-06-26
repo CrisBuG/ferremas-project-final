@@ -1,145 +1,133 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { authService } from '../services/api';
 
-// Definición de tipos
-export interface User {
+interface User {
   id: number;
   email: string;
   first_name: string;
   last_name: string;
-  role: 'cliente' | 'bodeguero' | 'contador' | 'admin';
-  address?: string;
-  phone?: string;
-  date_joined: string;
-  // New profile picture field
+  is_staff: boolean;
+  role?: string;
   profile_picture?: string;
-  // New personal fields
-  date_of_birth?: string;
-  gender?: string;
-  // New shipping fields
-  shipping_first_name?: string;
-  shipping_last_name?: string;
-  shipping_company?: string;
   shipping_address?: string;
   shipping_city?: string;
   shipping_state?: string;
   shipping_postal_code?: string;
-  shipping_country?: string;
   shipping_phone?: string;
+  shipping_first_name?: string;
+  shipping_last_name?: string;
+  shipping_company?: string;
 }
 
 interface AuthContextType {
   user: User | null;
+  loading: boolean;
+  error: string | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  checkAuth: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
+  hasPermission: (role: 'is_staff') => boolean;
 }
 
-
-
-// Crear el contexto
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Hook para usar el contexto
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
-  }
-  return context;
-};
-
-// Proveedor del contexto
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Verificar si hay un usuario autenticado al cargar la aplicación
+  const checkAuth = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await authService.getCurrentUser();
+      setUser(response.data);
+    } catch (err) {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const checkUser = async () => {
       try {
-        // Solo verificar si NO estamos en la página de login o register
         if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
           const response = await authService.getCurrentUser();
           setUser(response.data);
         }
       } catch (error) {
         console.error('Error al obtener el usuario actual:', error);
-        // No hay sesión activa, el usuario no está autenticado
         setUser(null);
       }
-      setIsLoading(false);
+      setLoading(false);
     };
 
     checkUser();
   }, []);
 
-  // Función para iniciar sesión
   const login = async (email: string, password: string) => {
     try {
-      // Hacer login - esto establecerá la cookie de sesión
+      setLoading(true);
       const response = await authService.login(email, password);
       
-      // AGREGAR LOGGING TEMPORAL
       console.log('🔍 Respuesta completa del login:', response);
       console.log('🔍 Datos de la respuesta:', response.data);
-      console.log('🔍 ¿Tiene token?:', response.data.token);
       
-      // ✅ AGREGAR: Guardar token si viene en la respuesta
       if (response.data.success && response.data.token) {
         localStorage.setItem('access_token', response.data.token);
         console.log('✅ Token guardado:', response.data.token);
-      } else {
-        console.log('❌ No se encontró token en la respuesta');
       }
       
-      // Obtener datos del usuario después del login exitoso
       const userResponse = await authService.getCurrentUser();
       setUser(userResponse.data);
+      setError(null);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Error al iniciar sesión');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await authService.logout();
     } catch (error) {
-      console.error('Error al iniciar sesión:', error);
+      console.error('Error al cerrar sesión:', error);
+    } finally {
+      localStorage.removeItem('access_token');
+      setUser(null);
+      window.location.href = '/login';
+    }
+  };
+
+  const updateUser = async (userData: Partial<User>) => {
+    try {
+      const response = await authService.getCurrentUser();
+      setUser(response.data);
+    } catch (error) {
+      console.error('Error al actualizar el usuario:', error);
       throw error;
     }
   };
-  
-// Función para cerrar sesión - MODIFICADA
-const logout = async () => {
-  try {
-    await authService.logout();
-  } catch (error) {
-    console.error('Error al cerrar sesión:', error);
-  } finally {
-    // ✅ AGREGAR: Eliminar token del localStorage
-    localStorage.removeItem('access_token');
-    setUser(null);
-    // Redirigir al login
-    window.location.href = '/login';
-  }
-};
 
-// Función para actualizar datos del usuario
-  const updateUser = async (userData: Partial<User>) => {
-    try {
-    // Obtener los datos actualizados del servidor después de la actualización
-    const response = await authService.getCurrentUser();
-    setUser(response.data);
-  } catch (error) {
-    console.error('Error al actualizar el usuario:', error);
-    throw error;
-  }
-};
-
-// ... existing code ...
+  const hasPermission = (role: 'is_staff'): boolean => {
+    if (!user) return false;
+    return user[role] === true;
+  };
 
   const value: AuthContextType = {
     user,
+    loading,
+    error,
     isAuthenticated: !!user,
-    isLoading,
     login,
     logout,
+    checkAuth,
     updateUser,
+    hasPermission,
   };
 
   return (
@@ -147,4 +135,12 @@ const logout = async () => {
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
+  }
+  return context;
 };

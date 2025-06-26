@@ -447,21 +447,21 @@ const Navbar: React.FC = () => {
             </NavLink>
             
             {/* Panel de Administrador */}
-            {user.role === 'admin' && (
+            {user.is_staff && (
               <NavLink to="/admin-dashboard" onClick={() => setIsOpen(false)}>
                 <FaCog /> Panel Admin
               </NavLink>
             )}
             
             {/* Panel de Bodeguero */}
-            {(user.role === 'bodeguero' || user.role === 'admin') && (
+            {user.is_staff && (
               <NavLink to="/warehouse-dashboard" onClick={() => setIsOpen(false)}>
                 <FaWarehouse /> Bodega
               </NavLink>
             )}
             
             {/* Panel de Contador */}
-            {(user.role === 'contador' || user.role === 'admin') && (
+            {user.is_staff && (
               <NavLink to="/accountant-dashboard" onClick={() => setIsOpen(false)}>
                 <FaCalculator /> Contabilidad
               </NavLink>

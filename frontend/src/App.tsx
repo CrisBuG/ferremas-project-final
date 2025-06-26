@@ -39,9 +39,11 @@ function App() {
               {/* Rutas protegidas para usuarios autenticados */}
               <Route 
                 path="/profile" 
-                element={
+                element={                  
                   <ErrorBoundary>
-                    <ProtectedRoute element={<ProfilePage />} />
+                    <ProtectedRoute>
+                      <ProfilePage />
+                    </ProtectedRoute>
                   </ErrorBoundary>
                 } 
               />
@@ -49,7 +51,9 @@ function App() {
                 path="/cart" 
                 element={
                   <ErrorBoundary>
-                    <ProtectedRoute element={<CartPage />} />
+                    <ProtectedRoute>
+                      <CartPage />
+                    </ProtectedRoute>
                   </ErrorBoundary>
                 } 
               />
@@ -57,7 +61,9 @@ function App() {
                 path="/checkout" 
                 element={
                   <ErrorBoundary>
-                    <ProtectedRoute element={<CheckoutPage />} />
+                    <ProtectedRoute>
+                      <CheckoutPage />
+                    </ProtectedRoute>
                   </ErrorBoundary>
                 } 
               />
@@ -65,7 +71,9 @@ function App() {
                 path="/payment-confirmation" 
                 element={
                   <ErrorBoundary>
-                    <ProtectedRoute element={<PaymentConfirmationPage />} />
+                    <ProtectedRoute>
+                      <PaymentConfirmationPage />
+                    </ProtectedRoute>
                   </ErrorBoundary>
                 } 
               />
@@ -73,7 +81,9 @@ function App() {
                 path="/payment-integration-confirmation" 
                 element={
                   <ErrorBoundary>
-                    <ProtectedRoute element={<PaymentIntegrationConfirmationPage />} />
+                    <ProtectedRoute>
+                      <PaymentIntegrationConfirmationPage />
+                    </ProtectedRoute>
                   </ErrorBoundary>
                 } 
               />
@@ -83,10 +93,9 @@ function App() {
                 path="/admin-dashboard" 
                 element={
                   <ErrorBoundary>
-                    <ProtectedRoute 
-                      element={<AdminDashboardPage />} 
-                      allowedRoles={['admin']} 
-                    />
+                    <ProtectedRoute requiredRole="is_staff">
+                      <AdminDashboardPage />
+                    </ProtectedRoute>
                   </ErrorBoundary>
                 } 
               />
@@ -94,10 +103,9 @@ function App() {
                 path="/warehouse-dashboard" 
                 element={
                   <ErrorBoundary>
-                    <ProtectedRoute 
-                      element={<WarehouseDashboardPage />} 
-                      allowedRoles={['bodeguero', 'admin']} 
-                    />
+                    <ProtectedRoute requiredRole="is_staff">
+                      <WarehouseDashboardPage />
+                    </ProtectedRoute>
                   </ErrorBoundary>
                 } 
               />
@@ -105,10 +113,9 @@ function App() {
                 path="/accountant-dashboard" 
                 element={
                   <ErrorBoundary>
-                    <ProtectedRoute 
-                      element={<AccountantDashboardPage />} 
-                      allowedRoles={['contador', 'admin']} 
-                    />
+                    <ProtectedRoute requiredRole="is_staff">
+                      <AccountantDashboardPage />
+                    </ProtectedRoute>
                   </ErrorBoundary>
                 } 
               />

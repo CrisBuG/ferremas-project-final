@@ -16,9 +16,11 @@ import {
   FaSpinner,
   FaCalendarAlt,
   FaDollarSign,
-  FaBox
+  FaBox,
+  FaUndo,
+  FaPlus
 } from 'react-icons/fa';
-import { userService, orderService, categoryService } from '../services/api';
+import { userService, orderService, categoryService, returnsService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -58,6 +60,26 @@ interface OrderItem {
   };
   quantity: number;
   price: number;
+}
+
+interface Return {
+  id: number;
+  order: number;
+  reason: string;
+  description: string;
+  status: string;
+  created_at: string;
+  order_details?: {
+    id: number;
+    total_amount: number;
+    created_at: string;
+  };
+}
+
+interface ReturnFormData {
+  order_id: string;
+  reason: string;
+  description: string;
 }
 
 // Keyframes
@@ -268,6 +290,22 @@ const Input = styled.input`
   &:disabled {
     background: #f8f9fa;
     cursor: not-allowed;
+  }
+`;
+
+const Select = styled.select`
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: white;
+  
+  &:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
   }
 `;
 
@@ -501,6 +539,94 @@ const HiddenFileInput = styled.input`
   display: none;
 `;
 
+const Modal = styled.div<{ show: boolean }>`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: ${props => props.show ? 'flex' : 'none'};
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: ${fadeInUp} 0.3s ease-out;
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  
+  h2 {
+    margin: 0;
+    color: #333;
+  }
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #666;
+  cursor: pointer;
+  padding: 0.25rem;
+  
+  &:hover {
+    color: #333;
+  }
+`;
+
+const ReturnCard = styled.div`
+  background: #f8f9fa;
+  border-radius: 15px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
+  animation: ${slideIn} 0.5s ease-out;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  }
+`;
+
+const ReturnStatus = styled.span<{ status: string }>`
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  
+  ${props => {
+    switch (props.status.toLowerCase()) {
+      case 'approved':
+      case 'aprobado':
+        return 'background: #d4edda; color: #155724;';
+      case 'pending':
+      case 'pendiente':
+        return 'background: #fff3cd; color: #856404;';
+      case 'rejected':
+      case 'rechazado':
+        return 'background: #f8d7da; color: #721c24;';
+      default:
+        return 'background: #e2e3e5; color: #383d41;';
+    }
+  }}
+`;
+
 const ProfilePage: React.FC = () => {
   const { user, updateUser } = useAuth();
   const navigate = useNavigate();
@@ -518,6 +644,9 @@ const ProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [returns, setReturns] = useState<Return[]>([]);
+  const [returnsLoading, setReturnsLoading] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
   
   // Estados para formularios
   const [personalData, setPersonalData] = useState({
@@ -541,6 +670,12 @@ const ProfilePage: React.FC = () => {
     confirm_password: ''
   });
   
+  const [returnFormData, setReturnFormData] = useState<ReturnFormData>({
+    order_id: '',
+    reason: '',
+    description: ''
+  });
+  
   const [showPasswords, setShowPasswords] = useState({
     current: false,
     new: false,
@@ -561,6 +696,7 @@ const ProfilePage: React.FC = () => {
     
     loadUserProfile();
     loadOrders();
+    loadReturns();
   }, [user, navigate]);
 
   // Funciones de carga de datos
@@ -602,6 +738,19 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  
+const loadReturns = async () => {
+  try {
+    setReturnsLoading(true);
+    const response = await returnsService.getReturns(); // Cambiar de getMyReturns a getReturns
+    setReturns(response.data);
+  } catch (error) {
+    console.error('Error loading returns:', error);
+  } finally {
+    setReturnsLoading(false);
+  }
+};
+
   // Funciones de manejo de formularios
   const handlePersonalDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPersonalData({
@@ -620,6 +769,13 @@ const ProfilePage: React.FC = () => {
   const handlePasswordDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPasswordData({
       ...passwordData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleReturnFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setReturnFormData({
+      ...returnFormData,
       [e.target.name]: e.target.value
     });
   };
@@ -658,94 +814,128 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-
   const changePassword = async () => {
-  if (passwordData.new_password !== passwordData.confirm_password) {
-    toast.error('Las contraseñas no coinciden');
-    return;
-  }
-  
-  if (passwordData.new_password.length < 8) {
-    toast.error('La nueva contraseña debe tener al menos 8 caracteres');
-    return;
-  }
-
-  setLoading(true);
-  try {
-    await userService.changePassword({
-      current_password: passwordData.current_password,
-      new_password: passwordData.new_password
-    });
-    
-    setPasswordData({
-      current_password: '',
-      new_password: '',
-      confirm_password: ''
-    });
-    
-    toast.success('Contraseña cambiada correctamente');
-  } catch (error: any) {
-    console.error('Error al cambiar contraseña:', error);
-    
-    // Manejo específico del error 405
-    if (error.response?.status === 405) {
-      toast.error('Funcionalidad de cambio de contraseña no disponible temporalmente. Contacta al administrador.');
-    } else if (error.response?.data?.current_password) {
-      toast.error('La contraseña actual es incorrecta');
-    } else if (error.response?.status === 404) {
-      toast.error('Endpoint de cambio de contraseña no encontrado. Contacta al administrador.');
-    } else {
-      toast.error('Error al cambiar la contraseña: ' + (error.response?.data?.detail || error.message));
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      toast.error('Las contraseñas no coinciden');
+      return;
     }
-  } finally {
-    setLoading(false);
-  }
-};
+    
+    if (passwordData.new_password.length < 8) {
+      toast.error('La nueva contraseña debe tener al menos 8 caracteres');
+      return;
+    }
 
+    setLoading(true);
+    try {
+      await userService.changePassword({
+        current_password: passwordData.current_password,
+        new_password: passwordData.new_password
+      });
+      
+      setPasswordData({
+        current_password: '',
+        new_password: '',
+        confirm_password: ''
+      });
+      
+      toast.success('Contraseña cambiada correctamente');
+    } catch (error: any) {
+      console.error('Error al cambiar contraseña:', error);
+      
+      // Manejo específico del error 405
+      if (error.response?.status === 405) {
+        toast.error('Funcionalidad de cambio de contraseña no disponible temporalmente. Contacta al administrador.');
+      } else if (error.response?.data?.current_password) {
+        toast.error('La contraseña actual es incorrecta');
+      } else if (error.response?.status === 404) {
+        toast.error('Endpoint de cambio de contraseña no encontrado. Contacta al administrador.');
+      } else {
+        toast.error('Error al cambiar la contraseña: ' + (error.response?.data?.detail || error.message));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Función para manejar la subida de foto de perfil
-    const handleProfileImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-  
-      // Validar tipo de archivo
-      if (!file.type.startsWith('image/')) {
-        toast.error('Por favor selecciona un archivo de imagen válido');
-        return;
+  const submitReturn = async () => {
+    if (!returnFormData.order_id || !returnFormData.reason || !returnFormData.description) {
+      toast.error('Por favor completa todos los campos');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await returnsService.createReturn({
+        order: parseInt(returnFormData.order_id),
+        reason: returnFormData.reason,
+        description: returnFormData.description
+      });
+      
+      setReturnFormData({
+        order_id: '',
+        reason: '',
+        description: ''
+      });
+      
+      setShowReturnModal(false);
+      toast.success('Solicitud de devolución enviada correctamente');
+      loadReturns(); // Recargar la lista de devoluciones
+    } catch (error: any) {
+      console.error('Error al crear devolución:', error);
+      if (error.response?.data?.detail) {
+        toast.error(error.response.data.detail);
+      } else {
+        toast.error('Error al enviar la solicitud de devolución');
       }
-  
-      // Validar tamaño (máximo 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('La imagen debe ser menor a 5MB');
-        return;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para manejar la subida de foto de perfil
+  const handleProfileImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de archivo
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor selecciona un archivo de imagen válido');
+      return;
+    }
+
+    // Validar tamaño (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('La imagen debe ser menor a 5MB');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('profile_picture', file);
+      
+      const response = await userService.updateProfile(formData);
+      
+      // Actualizar contexto de usuario
+      if (updateUser && response.data.user) {
+        updateUser({ ...user, profile_picture: response.data.user.profile_picture });
       }
-  
-      setLoading(true);
-      try {
-        const formData = new FormData();
-        formData.append('profile_picture', file);
-        
-        const response = await userService.updateProfile(formData);
-        
-        // Actualizar contexto de usuario
-        if (updateUser && response.data.user) {
-          updateUser({ ...user, profile_picture: response.data.user.profile_picture });
-        }
-        
-        toast.success('Foto de perfil actualizada correctamente');
-        // Recargar datos del perfil
-        await loadUserProfile();
-      } catch (error: any) {
-        console.error('Error al actualizar foto de perfil:', error);
-        if (error.response?.status === 405) {
-          toast.error('Error de configuración del servidor. Contacta al administrador.');
-        } else {
-          toast.error('Error al actualizar la foto de perfil');
-        }
-      } finally {
-        setLoading(false);
+      
+      toast.success('Foto de perfil actualizada correctamente');
+      // Recargar datos del perfil
+      await loadUserProfile();
+    } catch (error: any) {
+      console.error('Error al actualizar foto de perfil:', error);
+      if (error.response?.status === 405) {
+        toast.error('Error de configuración del servidor. Contacta al administrador.');
+      } else {
+        toast.error('Error al actualizar la foto de perfil');
       }
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Función para formatear fecha
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-CL', {
@@ -765,6 +955,20 @@ const ProfilePage: React.FC = () => {
     }).format(price);
   };
 
+  // Función para obtener imagen de perfil con fallback
+  const getProfileImageSrc = () => {
+    if (user?.profile_picture) {
+      // Si la URL ya es completa, usarla directamente
+      if (user.profile_picture.startsWith('http')) {
+        return user.profile_picture;
+      }
+      // Si es una ruta relativa, construir la URL completa
+      return `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}${user.profile_picture}`;
+    }
+    // Imagen por defecto
+    return 'https://via.placeholder.com/120x120/667eea/ffffff?text=Usuario';
+  };
+
   if (!user) {
     return (
       <LoadingSpinner>
@@ -781,12 +985,12 @@ const ProfilePage: React.FC = () => {
           {/* Header del perfil */}
           <ProfileHeader>
             <ProfileImageContainer onClick={() => fileInputRef.current?.click()}>
-            <ProfileImage 
-              src={user.profile_picture || 'https://via.placeholder.com/120x120/667eea/ffffff?text=Usuario'} 
-              alt="Foto de perfil"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = 'https://via.placeholder.com/120x120/667eea/ffffff?text=Usuario';
+              <ProfileImage 
+                src={getProfileImageSrc()}
+                alt="Foto de perfil"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = 'https://via.placeholder.com/120x120/667eea/ffffff?text=Usuario';
                 }}
               />
               <ImageOverlay>
@@ -837,6 +1041,12 @@ const ProfilePage: React.FC = () => {
                 onClick={() => setActiveTab('orders')}
               >
                 <FaShoppingBag /> Mis Órdenes
+              </TabButton>
+              <TabButton 
+                active={activeTab === 'returns'} 
+                onClick={() => setActiveTab('returns')}
+              >
+                <FaUndo /> Devoluciones
               </TabButton>
             </TabHeader>
 
@@ -1153,10 +1363,140 @@ const ProfilePage: React.FC = () => {
                   )}
                 </div>
               )}
+
+              {/* Pestaña de Devoluciones */}
+              {activeTab === 'returns' && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                    <h2 style={{ margin: 0, color: '#333' }}>Mis Devoluciones</h2>
+                    <Button onClick={() => setShowReturnModal(true)}>
+                      <FaPlus /> Nueva Devolución
+                    </Button>
+                  </div>
+                  
+                  {returnsLoading ? (
+                    <LoadingSpinner>
+                      <FaSpinner size={24} />
+                    </LoadingSpinner>
+                  ) : returns.length === 0 ? (
+                    <EmptyState>
+                      <FaUndo />
+                      <h3>No tienes devoluciones registradas</h3>
+                      <p>Aquí aparecerán tus solicitudes de devolución cuando las realices.</p>
+                    </EmptyState>
+                  ) : (
+                    returns.map((returnItem) => (
+                      <ReturnCard key={returnItem.id}>
+                        <OrderHeader>
+                          <div>
+                            <OrderId>Devolución #{returnItem.id}</OrderId>
+                            <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
+                              <FaCalendarAlt style={{ marginRight: '0.5rem' }} />
+                              {formatDate(returnItem.created_at)}
+                            </p>
+                            <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
+                              Orden: #{returnItem.order}
+                            </p>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <ReturnStatus status={returnItem.status}>
+                              {returnItem.status}
+                            </ReturnStatus>
+                          </div>
+                        </OrderHeader>
+                        
+                        <div style={{ marginTop: '1rem' }}>
+                          <div style={{ marginBottom: '0.5rem' }}>
+                            <strong>Motivo:</strong> {returnItem.reason}
+                          </div>
+                          <div>
+                            <strong>Descripción:</strong>
+                            <p style={{ margin: '0.25rem 0 0 0', color: '#666' }}>{returnItem.description}</p>
+                          </div>
+                        </div>
+                      </ReturnCard>
+                    ))
+                  )}
+                </div>
+              )}
             </TabContent>
           </TabContainer>
         </ProfileContent>
       </ProfileContainer>
+
+      {/* Modal para nueva devolución */}
+      <Modal show={showReturnModal}>
+        <ModalContent>
+          <ModalHeader>
+            <h2>Nueva Solicitud de Devolución</h2>
+            <CloseButton onClick={() => setShowReturnModal(false)}>
+              <FaTimes />
+            </CloseButton>
+          </ModalHeader>
+          
+          <FormGroup>
+            <Label>Orden</Label>
+            <Select
+              name="order_id"
+              value={returnFormData.order_id}
+              onChange={handleReturnFormChange}
+            >
+              <option value="">Selecciona una orden</option>
+              {orders.filter(order => {
+                const status = order.status.toLowerCase();
+                return status === 'pagada' || status === 'entregada' || status === 'completed';
+              }).map((order) => (
+                <option key={order.id} value={order.id}>
+                  Orden #{order.id} - {formatPrice(order.total_amount)} ({formatDate(order.created_at)})
+                </option>
+              ))}
+            </Select>
+          </FormGroup>
+          
+          <FormGroup>
+            <Label>Motivo de la devolución</Label>
+            <Select
+              name="reason"
+              value={returnFormData.reason}
+              onChange={handleReturnFormChange}
+            >
+              <option value="">Selecciona un motivo</option>
+              <option value="defective">Producto defectuoso</option>
+              <option value="wrong_item">Producto incorrecto</option>
+              <option value="not_as_described">No coincide con la descripción</option>
+              <option value="damaged">Producto dañado</option>
+              <option value="other">Otro</option>
+            </Select>
+          </FormGroup>
+          
+          <FormGroup>
+            <Label>Descripción detallada</Label>
+            <TextArea
+              name="description"
+              value={returnFormData.description}
+              onChange={handleReturnFormChange}
+              placeholder="Describe detalladamente el problema con tu pedido..."
+              rows={4}
+            />
+          </FormGroup>
+          
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+            <Button 
+              variant="secondary" 
+              onClick={() => setShowReturnModal(false)}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={submitReturn} 
+              disabled={loading}
+            >
+              {loading ? <FaSpinner /> : <FaCheck />} Enviar Solicitud
+            </Button>
+          </div>
+        </ModalContent>
+      </Modal>
+
       <Footer />
     </>
   );

@@ -7,5 +7,5 @@ router.register(r'promotions', PromotionViewSet, basename='promotion')
 router.register(r'coupons', CouponViewSet, basename='coupon')
 
 urlpatterns = [
-    path('api/', include(router.urls)),
+    path('', include(router.urls)),
 ]

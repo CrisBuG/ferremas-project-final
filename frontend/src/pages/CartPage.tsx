@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
-import { FaTrash, FaPlus, FaMinus, FaShoppingCart } from 'react-icons/fa';
-import Navbar from '../components/Navbar';
-import { cartService, exchangeRateService } from '../services/api';
+import { 
+  FaShoppingCart, 
+  FaPlus, 
+  FaMinus, 
+  FaTrash,
+  FaTruck,
+  FaStore,
+  FaTag
+} from 'react-icons/fa';
+import { cartService, exchangeRateService, couponService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
+// Interfaces
 interface CartItem {
   id: number;
   product: {
@@ -13,13 +23,7 @@ interface CartItem {
     name: string;
     price: number;
     price_clp?: number;
-    images?: {
-      id: number;
-      image_url: string;
-      alt_text: string;
-      is_primary: boolean;
-      order: number;
-    }[];
+    images?: Array<{ image_url: string }>;
   };
   quantity: number;
 }
@@ -30,7 +34,24 @@ interface Cart {
   total: number;
 }
 
+interface DeliveryMethod {
+  type: 'envio' | 'presencial';
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+}
+
+// Keyframes
 const fadeIn = keyframes`
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+`;
+
+const slideIn = keyframes`
   from {
     opacity: 0;
     transform: translateY(30px);
@@ -41,41 +62,28 @@ const fadeIn = keyframes`
   }
 `;
 
-const slideIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-`;
-
+// Styled Components
 const PageContainer = styled.div`
-  width: 100%;
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
-  flex-direction: column;
+  padding-bottom: 2rem;
 `;
 
 const CartContainer = styled.div`
   max-width: 1400px;
-  margin: 2rem auto;
-  padding: 0 2rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
   animation: ${fadeIn} 0.6s ease-out;
-  flex: 1;
 `;
 
 const Title = styled.h1`
+  text-align: center;
   color: white;
   font-size: 3rem;
-  margin-bottom: 3rem;
-  text-align: center;
   font-weight: 800;
+  margin-bottom: 3rem;
   text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  letter-spacing: -1px;
+  animation: ${slideIn} 0.8s ease-out;
   
   @media (max-width: 768px) {
     font-size: 2.2rem;
@@ -85,10 +93,10 @@ const Title = styled.h1`
 
 const CartContent = styled.div`
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr 400px;
   gap: 3rem;
   
-  @media (max-width: 1024px) {
+  @media (max-width: 1200px) {
     grid-template-columns: 1fr;
     gap: 2rem;
   }
@@ -293,6 +301,159 @@ const RemoveButton = styled.button`
   }
 `;
 
+// Nuevos styled components para modalidad de entrega
+const DeliverySection = styled.div`
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  animation: ${slideIn} 0.6s ease-out 0.1s both;
+`;
+
+const DeliveryTitle = styled.h3`
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const DeliveryOptions = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const DeliveryOption = styled.div<{ selected: boolean }>`
+  border: 2px solid ${props => props.selected ? '#667eea' : '#e1e8ed'};
+  border-radius: 12px;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: ${props => props.selected ? 'rgba(102, 126, 234, 0.1)' : 'white'};
+  
+  &:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+  }
+`;
+
+const DeliveryOptionHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+`;
+
+const DeliveryOptionIcon = styled.div<{ selected: boolean }>`
+  font-size: 1.5rem;
+  color: ${props => props.selected ? '#667eea' : '#7f8c8d'};
+`;
+
+const DeliveryOptionLabel = styled.h4<{ selected: boolean }>`
+  margin: 0;
+  color: ${props => props.selected ? '#667eea' : '#2c3e50'};
+  font-weight: 600;
+`;
+
+const DeliveryOptionDescription = styled.p`
+  margin: 0;
+  color: #7f8c8d;
+  font-size: 0.9rem;
+`;
+
+// Nuevos styled components para cupón de descuento
+const CouponSection = styled.div`
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  animation: ${slideIn} 0.6s ease-out 0.2s both;
+`;
+
+const CouponTitle = styled.h3`
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const CouponInputContainer = styled.div`
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+`;
+
+const CouponInput = styled.input`
+  flex: 1;
+  padding: 0.875rem 1rem;
+  border: 2px solid #e1e8ed;
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  
+  &:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+  
+  &::placeholder {
+    color: #95a5a6;
+  }
+`;
+
+const CouponButton = styled.button`
+  padding: 0.875rem 1.5rem;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
+const CouponStatus = styled.div<{ type: 'success' | 'error' }>`
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: ${props => props.type === 'success' ? 'rgba(39, 174, 96, 0.1)' : 'rgba(231, 76, 60, 0.1)'};
+  color: ${props => props.type === 'success' ? '#27ae60' : '#e74c3c'};
+  border: 1px solid ${props => props.type === 'success' ? 'rgba(39, 174, 96, 0.2)' : 'rgba(231, 76, 60, 0.2)'};
+`;
+
 const SummarySection = styled.div`
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
@@ -328,6 +489,11 @@ const SummaryRow = styled.div`
     font-weight: 800;
     font-size: 1.4rem;
     color: #e74c3c;
+  }
+  
+  &.discount {
+    color: #27ae60;
+    font-weight: 600;
   }
 `;
 
@@ -501,8 +667,33 @@ const CartPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<number | null>(null);
   const [dollarRate, setDollarRate] = useState<number>(850);
+  
+  // Nuevos estados para las funcionalidades
+  const [deliveryMethod, setDeliveryMethod] = useState<'envio' | 'presencial'>('envio');
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponStatus, setCouponStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+  
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // Opciones de entrega
+  const deliveryOptions: DeliveryMethod[] = [
+    {
+      type: 'envio',
+      label: 'Envío a Domicilio',
+      description: 'Recibe tu pedido en la comodidad de tu hogar',
+      icon: <FaTruck />
+    },
+    {
+      type: 'presencial',
+      label: 'Retiro en Tienda',
+      description: 'Retira tu pedido en nuestra tienda física',
+      icon: <FaStore />
+    }
+  ];
 
   useEffect(() => {
     if (!user) {
@@ -544,6 +735,11 @@ const CartPage: React.FC = () => {
       setUpdating(itemId);
       await cartService.updateCartItem(itemId, newQuantity);
       await loadCart();
+      // Recalcular descuento si hay cupón aplicado
+      if (appliedCoupon) {
+        const newTotal = calculateTotalCLP();
+        setCouponDiscount(newTotal * 0.20);
+      }
     } catch (error) {
       console.error('Error updating quantity:', error);
       setError('Error al actualizar la cantidad');
@@ -557,6 +753,11 @@ const CartPage: React.FC = () => {
       setUpdating(itemId);
       await cartService.removeFromCart(itemId);
       await loadCart();
+      // Recalcular descuento si hay cupón aplicado
+      if (appliedCoupon) {
+        const newTotal = calculateTotalCLP();
+        setCouponDiscount(newTotal * 0.20);
+      }
     } catch (error) {
       console.error('Error removing item:', error);
       setError('Error al eliminar el producto');
@@ -573,10 +774,59 @@ const CartPage: React.FC = () => {
     try {
       await cartService.clearCart();
       await loadCart();
+      // Limpiar cupón al vaciar carrito
+      removeCoupon();
     } catch (error) {
       console.error('Error clearing cart:', error);
       setError('Error al vaciar el carrito');
     }
+  };
+
+  // Función para aplicar cupón
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponStatus({ type: 'error', message: 'Ingresa un código de cupón' });
+      return;
+    }
+
+    setApplyingCoupon(true);
+    try {
+      const total = calculateTotalCLP();
+      const response = await couponService.apply(couponCode, total);
+      
+      if (response.data.valid) {
+        setAppliedCoupon({
+          code: couponCode.toUpperCase(),
+          discount_percentage: response.data.discount_percentage,
+          discount_amount: response.data.discount_amount
+        });
+        setCouponDiscount(response.data.discount_amount);
+        setCouponStatus({ 
+          type: 'success', 
+          message: `¡Cupón aplicado! ${response.data.discount_percentage}% de descuento` 
+        });
+      } else {
+        setCouponStatus({ 
+          type: 'error', 
+          message: response.data.message || 'Cupón inválido' 
+        });
+      }
+    } catch (error: any) {
+      setCouponStatus({ 
+        type: 'error', 
+        message: error.response?.data?.message || 'Error al aplicar el cupón' 
+      });
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
+
+  // Función para remover cupón
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setCouponCode('');
+    setCouponStatus(null);
   };
 
   const calculateTotal = () => {
@@ -590,6 +840,11 @@ const CartPage: React.FC = () => {
       const priceCLP = item.product.price_clp || (item.product.price * dollarRate);
       return total + (priceCLP * item.quantity);
     }, 0);
+  };
+
+  const calculateFinalTotal = () => {
+    const subtotal = calculateTotalCLP();
+    return subtotal - couponDiscount;
   };
 
   const formatPrice = (price: number) => {
@@ -657,62 +912,135 @@ const CartPage: React.FC = () => {
         <Title>Carrito de Compras</Title>
         
         <CartContent>
-          <CartItemsSection>
-            {cart.items.map((item) => {
-              const priceCLP = item.product.price_clp || (item.product.price * dollarRate);
-              const totalCLP = priceCLP * item.quantity;
-              const totalUSD = item.product.price * item.quantity;
-              
-              return (
-                <CartItemCard key={item.id}>
-                  <ProductImage 
-                    src={item.product.images?.[0]?.image_url || '/api/placeholder/100/100'} 
-                    alt={item.product.name}
-                  />
-                  
-                  <ProductInfo>
-                    <ProductName>{item.product.name}</ProductName>
-                    <PriceContainer>
-                      <ProductPriceUSD>${item.product.price.toFixed(2)} USD</ProductPriceUSD>
-                      <ProductPriceCLP>{formatPrice(priceCLP)}</ProductPriceCLP>
-                    </PriceContainer>
-                  </ProductInfo>
-                  
-                  <QuantityControls>
-                    <QuantityButton 
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      disabled={item.quantity <= 1 || updating === item.id}
-                    >
-                      <FaMinus />
-                    </QuantityButton>
-                    <QuantityDisplay>{item.quantity}</QuantityDisplay>
-                    <QuantityButton 
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+          <div>
+            <CartItemsSection>
+              {cart.items.map((item) => {
+                const priceCLP = item.product.price_clp || (item.product.price * dollarRate);
+                const totalCLP = priceCLP * item.quantity;
+                const totalUSD = item.product.price * item.quantity;
+                
+                return (
+                  <CartItemCard key={item.id}>
+                    <ProductImage 
+                      src={item.product.images?.[0]?.image_url || '/api/placeholder/100/100'} 
+                      alt={item.product.name}
+                    />
+                    
+                    <ProductInfo>
+                      <ProductName>{item.product.name}</ProductName>
+                      <PriceContainer>
+                        <ProductPriceUSD>${item.product.price.toFixed(2)} USD</ProductPriceUSD>
+                        <ProductPriceCLP>{formatPrice(priceCLP)}</ProductPriceCLP>
+                      </PriceContainer>
+                    </ProductInfo>
+                    
+                    <QuantityControls>
+                      <QuantityButton 
+                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        disabled={item.quantity <= 1 || updating === item.id}
+                      >
+                        <FaMinus />
+                      </QuantityButton>
+                      <QuantityDisplay>{item.quantity}</QuantityDisplay>
+                      <QuantityButton 
+                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        disabled={updating === item.id}
+                      >
+                        <FaPlus />
+                      </QuantityButton>
+                    </QuantityControls>
+                    
+                    <ItemTotal>
+                      <ItemTotalUSD>${totalUSD.toFixed(2)} USD</ItemTotalUSD>
+                      <ItemTotalCLP>{formatPrice(totalCLP)}</ItemTotalCLP>
+                    </ItemTotal>
+                    
+                    <RemoveButton 
+                      onClick={() => removeItem(item.id)}
                       disabled={updating === item.id}
                     >
-                      <FaPlus />
-                    </QuantityButton>
-                  </QuantityControls>
-                  
-                  <ItemTotal>
-                    <ItemTotalUSD>${totalUSD.toFixed(2)} USD</ItemTotalUSD>
-                    <ItemTotalCLP>{formatPrice(totalCLP)}</ItemTotalCLP>
-                  </ItemTotal>
-                  
-                  <RemoveButton 
-                    onClick={() => removeItem(item.id)}
-                    disabled={updating === item.id}
-                  >
-                    <FaTrash />
-                  </RemoveButton>
-                </CartItemCard>
-              );
-            })}
+                      <FaTrash />
+                    </RemoveButton>
+                  </CartItemCard>
+                );
+              })}
+              
+              <ClearCartButton onClick={clearCart}>
+                Vaciar Carrito
+              </ClearCartButton>
+            </CartItemsSection>
             
-            <ClearCartButton onClick={clearCart}>
-              Vaciar Carrito
-            </ClearCartButton>
-          </CartItemsSection>
+            {/* Nueva sección de modalidad de entrega */}
+            <DeliverySection>
+              <DeliveryTitle>
+                <FaTruck /> Modalidad de Entrega
+              </DeliveryTitle>
+              <DeliveryOptions>
+                {deliveryOptions.map((option) => (
+                  <DeliveryOption
+                    key={option.type}
+                    selected={deliveryMethod === option.type}
+                    onClick={() => setDeliveryMethod(option.type)}
+                  >
+                    <DeliveryOptionHeader>
+                      <DeliveryOptionIcon selected={deliveryMethod === option.type}>
+                        {option.icon}
+                      </DeliveryOptionIcon>
+                      <DeliveryOptionLabel selected={deliveryMethod === option.type}>
+                        {option.label}
+                      </DeliveryOptionLabel>
+                    </DeliveryOptionHeader>
+                    <DeliveryOptionDescription>
+                      {option.description}
+                    </DeliveryOptionDescription>
+                  </DeliveryOption>
+                ))}
+              </DeliveryOptions>
+            </DeliverySection>
+
+            {/* Nueva sección de cupón de descuento */}
+            <CouponSection>
+              <CouponTitle>
+                <FaTag /> Cupón de Descuento
+              </CouponTitle>
+              {!appliedCoupon ? (
+                <>
+                  <CouponInputContainer>
+                    <CouponInput
+                      type="text"
+                      placeholder="Ingresa tu código de cupón"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      onKeyPress={(e) => e.key === 'Enter' && applyCoupon()}
+                    />
+                    <CouponButton
+                      onClick={applyCoupon}
+                      disabled={applyingCoupon}
+                    >
+                      {applyingCoupon ? 'Aplicando...' : 'Aplicar'}
+                    </CouponButton>
+                  </CouponInputContainer>
+                  {couponStatus && (
+                    <CouponStatus type={couponStatus.type}>
+                      {couponStatus.message}
+                    </CouponStatus>
+                  )}
+                </>
+              ) : (
+                <div>
+                  <CouponStatus type="success">
+                    Cupón {appliedCoupon.code} aplicado - {appliedCoupon.discount_percentage}% de descuento
+                  </CouponStatus>
+                  <CouponButton
+                    onClick={removeCoupon}
+                    style={{ marginTop: '1rem', background: '#e74c3c' }}
+                  >
+                    Remover Cupón
+                  </CouponButton>
+                </div>
+              )}
+            </CouponSection>
+          </div>
           
           <SummarySection>
             <SummaryTitle>Resumen del Pedido</SummaryTitle>
@@ -725,16 +1053,24 @@ const CartPage: React.FC = () => {
               <span>Subtotal (CLP):</span>
               <span>{formatPrice(calculateTotalCLP())}</span>
             </SummaryRow>
+            {appliedCoupon && (
+              <SummaryRow className="discount">
+                <span>Descuento ({appliedCoupon.discount_percentage}%):</span>
+                <span>-{formatPrice(couponDiscount)}</span>
+              </SummaryRow>
+            )}
             <SummaryRow>
               <span>Envío:</span>
-              <span>Gratis</span>
+              <span>{deliveryMethod === 'envio' ? 'Gratis' : 'Retiro en tienda'}</span>
             </SummaryRow>
             <SummaryRow className="total">
               <span>Total:</span>
-              <span>{formatPrice(calculateTotalCLP())}</span>
+              <span>{formatPrice(calculateFinalTotal())}</span>
             </SummaryRow>
             
-            <CheckoutButton to="/checkout">
+            <CheckoutButton 
+              to={`/checkout?delivery=${deliveryMethod}${appliedCoupon ? `&coupon=${appliedCoupon.code}` : ''}`}
+            >
               Proceder al Pago
             </CheckoutButton>
             
@@ -744,6 +1080,7 @@ const CartPage: React.FC = () => {
           </SummarySection>
         </CartContent>
       </CartContainer>
+      <Footer />
     </PageContainer>
   );
 };

@@ -13,9 +13,9 @@ interface Category {
 interface ProductImage {
   id?: number;
   image_url: string;
-  alt_text: string;
+  alt_text?: string;
   is_primary: boolean;
-  order: number;
+  order?: number;
 }
 
 interface Product {
@@ -69,6 +69,19 @@ interface StockMovement {
   reason: string;
   date: string;
   user: string;
+}
+
+interface ProductForm {
+  name: string;
+  description: string;
+  price: number;
+  stock: number;
+  category_id: number;
+  featured: boolean;
+  brand: string;
+  model: string;
+  warranty: string;
+  imageUrls: string[];
 }
 
 const PageContainer = styled.div`
@@ -177,9 +190,9 @@ const FormContainer = styled.div`
 
 const FormGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
 `;
 
 const FormGroup = styled.div`
@@ -190,13 +203,13 @@ const FormGroup = styled.div`
 
 const Label = styled.label`
   font-weight: 600;
-  color: #333;
+  color: #2c3e50;
   font-size: 0.9rem;
 `;
 
 const Input = styled.input`
   padding: 0.75rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #e9ecef;
   border-radius: 8px;
   font-size: 1rem;
   transition: border-color 0.3s ease;
@@ -209,11 +222,11 @@ const Input = styled.input`
 
 const TextArea = styled.textarea`
   padding: 0.75rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #e9ecef;
   border-radius: 8px;
   font-size: 1rem;
-  min-height: 100px;
   resize: vertical;
+  min-height: 100px;
   transition: border-color 0.3s ease;
   
   &:focus {
@@ -224,7 +237,7 @@ const TextArea = styled.textarea`
 
 const Select = styled.select`
   padding: 0.75rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #e9ecef;
   border-radius: 8px;
   font-size: 1rem;
   background: white;
@@ -307,6 +320,7 @@ const TableRow = styled.tr`
 const ActionButtons = styled.div`
   display: flex;
   gap: 0.5rem;
+  align-items: center;
 `;
 
 const SmallButton = styled.button<{ variant?: 'edit' | 'delete' | 'view' | 'approve' | 'reject' }>`
@@ -325,25 +339,25 @@ const SmallButton = styled.button<{ variant?: 'edit' | 'delete' | 'view' | 'appr
         return `
           background: #dc3545;
           color: white;
-          &:hover { background: #c82333; }
+          &:hover { background: #c82333; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); }
         `;
       case 'view':
         return `
           background: #17a2b8;
           color: white;
-          &:hover { background: #138496; }
+          &:hover { background: #138496; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); }
         `;
       case 'approve':
         return `
           background: #28a745;
           color: white;
-          &:hover { background: #218838; }
+          &:hover { background: #218838; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); }
         `;
       default:
         return `
-          background: #28a745;
+          background: #667eea;
           color: white;
-          &:hover { background: #218838; }
+          &:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); }
         `;
     }
   }}
@@ -413,6 +427,8 @@ const WarehouseDashboardPage: React.FC = () => {
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
   // Forms
   const [returnForm, setReturnForm] = useState<Return>({
@@ -432,6 +448,21 @@ const WarehouseDashboardPage: React.FC = () => {
     date: new Date().toISOString().split('T')[0],
     user: 'Bodeguero'
   });
+  
+  const [productForm, setProductForm] = useState<ProductForm>({
+    name: '',
+    description: '',
+    price: 0,
+    stock: 0,
+    category_id: 0,
+    featured: false,
+    brand: '',
+    model: '',
+    warranty: '',
+    imageUrls: []
+  });
+  
+  const [newImageUrl, setNewImageUrl] = useState('');
 
   useEffect(() => {
     initializeDashboard();
@@ -720,6 +751,120 @@ const WarehouseDashboardPage: React.FC = () => {
     });
   };
 
+  const resetProductForm = () => {
+    setProductForm({
+      name: '',
+      description: '',
+      price: 0,
+      stock: 0,
+      category_id: 0,
+      featured: false,
+      brand: '',
+      model: '',
+      warranty: '',
+      imageUrls: []
+    });
+    setNewImageUrl('');
+    setEditingProduct(null);
+  };
+
+  const handleCreateProduct = () => {
+    resetProductForm();
+    setShowProductModal(true);
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setProductForm({
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      stock: product.stock,
+      category_id: product.category.id,
+      featured: product.featured,
+      brand: product.brand || '',
+      model: product.model || '',
+      warranty: product.warranty || '',
+      imageUrls: product.images ? product.images.map(img => img.image_url) : []
+    });
+    setEditingProduct(product);
+    setShowProductModal(true);
+  };
+
+  const handleAddImageUrl = () => {
+    if (newImageUrl.trim() && !productForm.imageUrls.includes(newImageUrl.trim())) {
+      setProductForm({
+        ...productForm,
+        imageUrls: [...productForm.imageUrls, newImageUrl.trim()]
+      });
+      setNewImageUrl('');
+    }
+  };
+
+  const handleRemoveImageUrl = (index: number) => {
+    setProductForm({
+      ...productForm,
+      imageUrls: productForm.imageUrls.filter((_, i) => i !== index)
+    });
+  };
+
+  const handleProductSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const productData = {
+        name: productForm.name,
+        description: productForm.description,
+        price: productForm.price,
+        stock: productForm.stock,
+        category: productForm.category_id,
+        featured: productForm.featured,
+        brand: productForm.brand,
+        model: productForm.model,
+        warranty: productForm.warranty,
+        image_urls: productForm.imageUrls
+      };
+      
+      if (editingProduct) {
+        // Actualizar producto existente
+        await apiClient.put(`/products/${editingProduct.id}/`, productData, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        setSuccess('Producto actualizado exitosamente');
+      } else {
+        // Crear nuevo producto
+        await apiClient.post('/products/', productData, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        setSuccess('Producto creado exitosamente');
+      }
+      
+      await loadProducts();
+      setShowProductModal(false);
+      resetProductForm();
+    } catch (err: any) {
+      console.error('Error al guardar producto:', err);
+      setError('Error al guardar el producto');
+    }
+  };
+
+  const handleDeleteProduct = async (productId: number) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
+      try {
+        await apiClient.delete(`/products/${productId}/`);
+        setSuccess('Producto eliminado exitosamente');
+        await loadProducts();
+      } catch (err: any) {
+        console.error('Error al eliminar producto:', err);
+        setError('Error al eliminar el producto');
+      }
+    }
+  };
+
+
+
   // Estadísticas
   const lowStockProducts = products.filter(product => product.stock < 10);
   const outOfStockProducts = products.filter(product => product.stock === 0);
@@ -816,6 +961,12 @@ const WarehouseDashboardPage: React.FC = () => {
               onClick={() => setActiveTab('reports')}
             >
               📋 Reportes
+            </Tab>
+            <Tab 
+              active={activeTab === 'products'} 
+              onClick={() => setActiveTab('products')}
+            >
+              🛠️ Gestión de Productos
             </Tab>
           </TabContainer>
 
@@ -1110,6 +1261,84 @@ const WarehouseDashboardPage: React.FC = () => {
                 </Table>
               </>
             )}
+
+            {activeTab === 'products' && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                  <h3>🛠️ Gestión de Productos</h3>
+                  <Button onClick={handleCreateProduct}>
+                    ➕ Crear Nuevo Producto
+                  </Button>
+                </div>
+                
+                <Table>
+                  <thead>
+                    <tr>
+                      <TableHeader>Producto</TableHeader>
+                      <TableHeader>Categoría</TableHeader>
+                      <TableHeader>Precio</TableHeader>
+                      <TableHeader>Stock</TableHeader>
+                      <TableHeader>Estado</TableHeader>
+                      <TableHeader>Acciones</TableHeader>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.map(product => (
+                      <TableRow key={product.id}>
+                        <TableCell>
+                          <div>
+                            <strong>{product.name}</strong>
+                            {product.brand && (
+                              <div style={{ fontSize: '0.8rem', color: '#666' }}>
+                                {product.brand} - {product.model}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{product.category.name}</TableCell>
+                        <TableCell>${product.price.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <span style={{ 
+                            color: product.stock === 0 ? '#dc3545' : product.stock < 10 ? '#ffc107' : '#28a745',
+                            fontWeight: 'bold'
+                          }}>
+                            {product.stock}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold',
+                            background: product.featured ? '#667eea' : '#6c757d',
+                            color: 'white'
+                          }}>
+                            {product.featured ? 'Destacado' : 'Normal'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <ActionButtons>
+                            <SmallButton
+                              variant="edit"
+                              onClick={() => handleEditProduct(product)}
+                            >
+                              ✏️ Editar
+                            </SmallButton>
+                            <SmallButton
+                              variant="delete"
+                              onClick={() => handleDeleteProduct(product.id!)}
+                            >
+                              🗑️ Eliminar
+                            </SmallButton>
+                          </ActionButtons>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </tbody>
+                </Table>
+              </>
+            )}
           </ContentSection>
         </DashboardContainer>
       </MainContent>
@@ -1283,6 +1512,231 @@ const WarehouseDashboardPage: React.FC = () => {
               </Button>
               <Button type="submit">
                 Registrar Movimiento
+              </Button>
+            </div>
+          </form>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal para Crear/Editar Producto */}
+      <Modal show={showProductModal}>
+        <ModalContent style={{ maxWidth: '800px', maxHeight: '90vh', overflow: 'auto' }}>
+          <h2>{editingProduct ? '✏️ Editar Producto' : '➕ Crear Nuevo Producto'}</h2>
+          
+          <form onSubmit={handleProductSubmit}>
+            <FormGrid>
+              <FormGroup>
+                <Label>Nombre del Producto *</Label>
+                <Input
+                  type="text"
+                  value={productForm.name}
+                  onChange={(e) => setProductForm({...productForm, name: e.target.value})}
+                  placeholder="Nombre del producto"
+                  required
+                />
+              </FormGroup>
+              
+              <FormGroup>
+                <Label>Categoría *</Label>
+                <Select
+                  value={productForm.category_id}
+                  onChange={(e) => setProductForm({...productForm, category_id: parseInt(e.target.value)})}
+                  required
+                >
+                  <option value={0}>Seleccionar categoría</option>
+                  {categories.map(category => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </Select>
+              </FormGroup>
+              
+              <FormGroup>
+                <Label>Precio (USD) *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={productForm.price}
+                  onChange={(e) => setProductForm({...productForm, price: parseFloat(e.target.value)})}
+                  placeholder="0.00"
+                  required
+                />
+              </FormGroup>
+              
+              <FormGroup>
+                <Label>Stock Inicial *</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={productForm.stock}
+                  onChange={(e) => setProductForm({...productForm, stock: parseInt(e.target.value)})}
+                  placeholder="0"
+                  required
+                />
+              </FormGroup>
+              
+              <FormGroup>
+                <Label>Marca</Label>
+                <Input
+                  type="text"
+                  value={productForm.brand}
+                  onChange={(e) => setProductForm({...productForm, brand: e.target.value})}
+                  placeholder="Marca del producto"
+                />
+              </FormGroup>
+              
+              <FormGroup>
+                <Label>Modelo</Label>
+                <Input
+                  type="text"
+                  value={productForm.model}
+                  onChange={(e) => setProductForm({...productForm, model: e.target.value})}
+                  placeholder="Modelo del producto"
+                />
+              </FormGroup>
+            </FormGrid>
+            
+            <FormGroup>
+              <Label>Descripción *</Label>
+              <TextArea
+                value={productForm.description}
+                onChange={(e) => setProductForm({...productForm, description: e.target.value})}
+                placeholder="Descripción detallada del producto"
+                rows={4}
+                required
+              />
+            </FormGroup>
+            
+            <FormGroup>
+              <Label>Garantía</Label>
+              <Input
+                type="text"
+                value={productForm.warranty}
+                onChange={(e) => setProductForm({...productForm, warranty: e.target.value})}
+                placeholder="Ej: 12 meses, 2 años"
+              />
+            </FormGroup>
+            
+            <FormGroup>
+              <Label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  checked={productForm.featured}
+                  onChange={(e) => setProductForm({...productForm, featured: e.target.checked})}
+                />
+                Producto Destacado
+              </Label>
+            </FormGroup>
+            
+            <FormGroup>
+              <Label>Imágenes del Producto</Label>
+              
+              {/* Mostrar imágenes existentes */}
+              {productForm.imageUrls.length > 0 && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <h4 style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Imágenes actuales:</h4>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {productForm.imageUrls.map((imageUrl, index) => (
+                      <div key={index} style={{ position: 'relative', display: 'inline-block' }}>
+                        <img 
+                          src={imageUrl} 
+                          alt={`Producto ${index + 1}`}
+                          style={{ 
+                            width: '80px', 
+                            height: '80px', 
+                            objectFit: 'cover', 
+                            borderRadius: '4px',
+                            border: '2px solid #ddd'
+                          }}
+                          onError={(e) => {
+                            e.currentTarget.style.border = '2px solid #dc3545';
+                            e.currentTarget.alt = 'Error al cargar imagen';
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImageUrl(index)}
+                          style={{
+                            position: 'absolute',
+                            top: '-5px',
+                            right: '-5px',
+                            background: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '20px',
+                            height: '20px',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          ×
+                        </button>
+                        {index === 0 && (
+                          <div style={{
+                            position: 'absolute',
+                            bottom: '-5px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            background: '#28a745',
+                            color: 'white',
+                            fontSize: '10px',
+                            padding: '2px 4px',
+                            borderRadius: '2px'
+                          }}>
+                            Principal
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Input para agregar nueva URL */}
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
+                <div style={{ flex: 1 }}>
+                  <Label>Agregar URL de Imagen</Label>
+                  <Input
+                    type="url"
+                    value={newImageUrl}
+                    onChange={(e) => setNewImageUrl(e.target.value)}
+                    placeholder="https://ejemplo.com/imagen.jpg"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleAddImageUrl}
+                  disabled={!newImageUrl.trim()}
+                  style={{ marginBottom: 0, height: 'fit-content' }}
+                >
+                  Agregar
+                </Button>
+              </div>
+              
+              <small style={{ color: '#666', fontSize: '0.8rem' }}>
+                Ingresa URLs válidas de imágenes. La primera imagen será la principal.
+              </small>
+            </FormGroup>
+            
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '2rem' }}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  resetProductForm();
+                  setShowProductModal(false);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit">
+                {editingProduct ? 'Actualizar Producto' : 'Crear Producto'}
               </Button>
             </div>
           </form>

@@ -4,14 +4,15 @@ from .views import (
     ProductViewSet, CategoryViewSet, CartViewSet, OrderViewSet, UserViewSet,
     CSRFTokenView, register_view, login_view, 
     update_profile_view, get_exchange_rate, current_user_view, admin_stats_view,
-    verify_admin_password, google_auth, simulate_transbank_payment, simulate_payment_confirmation
+    verify_admin_password, google_auth, simulate_transbank_payment, simulate_payment_confirmation,
+    accountant_stats_view # <--- AÑADIR ESTA IMPORTACIÓN
 )
 
 # Importar ViewSets de las nuevas apps
 from billing.views import InvoiceViewSet as BillingInvoiceViewSet
 from reports.views import ReportViewSet, ReportTypeViewSet
 from returns.views import ReturnViewSet
-from promotions.views import PromotionViewSet, CouponViewSet
+from promotions.views import CouponViewSet, PromotionViewSet
 
 router = DefaultRouter()
 router.register(r'products', ProductViewSet)
@@ -24,11 +25,9 @@ router.register(r'users', UserViewSet, basename='user')
 router.register(r'billing/invoices', BillingInvoiceViewSet, basename='billing-invoice')
 router.register(r'returns/returns', ReturnViewSet, basename='return')
 router.register(r'promotions/promotions', PromotionViewSet, basename='promotion')
-router.register(r'promotions/coupons', CouponViewSet, basename='coupon')
+# router.register(r'promotions/coupons', CouponViewSet, basename='coupon')  # COMENTAR ESTA LÍNEA
 router.register(r'reports', ReportViewSet, basename='report')
 router.register(r'report-types', ReportTypeViewSet, basename='report-type')
-
-
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -52,12 +51,19 @@ urlpatterns = [
     path('orders/get_orders/', OrderViewSet.as_view({'get': 'get_orders'}), name='orders-get-orders'),
     path('orders/create_order/', OrderViewSet.as_view({'post': 'create_order'}), name='orders-create-order'),
 
+    # URLs explícitas de cupones - TEMPORAL
+    path('promotions/coupons/apply_coupon/', CouponViewSet.as_view({'post': 'apply_coupon'}), name='coupon-apply'),
+    path('promotions/coupons/validate_coupon/', CouponViewSet.as_view({'post': 'validate_coupon'}), name='coupon-validate'),
+
     # Simulación de pagos
     path('simulate-create/', simulate_transbank_payment, name='simulate_transbank_payment'),
     path('simulate-confirmation/', simulate_payment_confirmation, name='simulate_payment_confirmation'),
 
     # Admin stats endpoint
     path('admin/stats/', admin_stats_view, name='admin-stats'),
+
+    # Accountant stats endpoint
+    path('accountant/stats/', accountant_stats_view, name='accountant-stats'), # <--- AÑADIR ESTA LÍNEA
     
     # Exchange rate endpoint
     path('exchange-rate/', get_exchange_rate, name='exchange-rate'),
@@ -69,5 +75,5 @@ urlpatterns = [
     path('billing/', include('billing.urls')),
     path('reports/', include('reports.urls')),
     path('returns/', include('returns.urls')),
-    path('promotions/', include('promotions.urls')),
+    path('promotions/', include('promotions.urls')),  # DEBE ESTAR DESCOMENTADA
 ]

@@ -301,13 +301,12 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id', 'user', 'items', 'total', 'status',
-            'shipping_address', 'shipping_city', 'shipping_state',
-            'shipping_zip', 'shipping_phone', 'payment_method', 'payment_status',
-            'created_at'
+            'id', 'user', 'status', 'created_at', 'paid_at', 'total',
+            'shipping_address', 'shipping_city', 'shipping_state', 'shipping_zip',
+            'shipping_phone', 'payment_id', 'transaction_id', 'payment_method',
+            'payment_status', 'items'  # Remover 'delivery_method' y agregar 'items'
         ]
         read_only_fields = ['total', 'created_at']
-
 class ReportTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportType

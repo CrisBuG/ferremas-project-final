@@ -256,4 +256,17 @@ export const promotionService = {
   pausePromotion: (id: number) => apiClient.post(`/promotions/promotions/${id}/pause/`),
 };
 
+// Agregar al final del archivo
+export const returnsService = {
+  getReturns: () => apiClient.get('/returns/returns/'),
+  createReturn: (returnData: any) => apiClient.post('/returns/returns/create_return/', returnData),
+  getReturnById: (id: number) => apiClient.get(`/returns/returns/${id}/`),
+};
+
+// Coupon Service
+export const couponService = {
+  validate: (code: string) => apiClient.post('/promotions/coupons/validate_coupon/', { code }),
+  apply: (code: string, cartTotal: number) => apiClient.post('/promotions/coupons/apply_coupon/', { code, order_total: cartTotal }),
+};
+  
 
