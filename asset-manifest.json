@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/ferremas-project-final/static/css/main.0d2f44a9.css",
+    "main.js": "/ferremas-project-final/static/js/main.d3ec2a68.js",
+    "static/js/453.8ab44547.chunk.js": "/ferremas-project-final/static/js/453.8ab44547.chunk.js",
+    "index.html": "/ferremas-project-final/index.html",
+    "main.0d2f44a9.css.map": "/ferremas-project-final/static/css/main.0d2f44a9.css.map",
+    "main.d3ec2a68.js.map": "/ferremas-project-final/static/js/main.d3ec2a68.js.map",
+    "453.8ab44547.chunk.js.map": "/ferremas-project-final/static/js/453.8ab44547.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.0d2f44a9.css",
+    "static/js/main.d3ec2a68.js"
+  ]
+}
