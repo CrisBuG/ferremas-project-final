@@ -18,6 +18,14 @@ const apiClient = axios.create({
 // Interceptor para agregar CSRF token, JWT token y manejar FormData
 apiClient.interceptors.request.use(
   async (config) => {
+    // Normaliza URLs que comienzan con '/' para respetar el prefijo '/api' del baseURL
+    if (typeof config.url === 'string') {
+      const url = config.url;
+      if (url.startsWith('/') && !url.startsWith('/api/')) {
+        config.url = url.slice(1);
+      }
+    }
+
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Token ${token}`;
@@ -232,6 +240,14 @@ export const paymentApiClient = axios.create({
 // Solo agregar el interceptor de request para incluir el token
 paymentApiClient.interceptors.request.use(
   (config) => {
+    // Normaliza URLs que comienzan con '/' para respetar el prefijo '/api'
+    if (typeof config.url === 'string') {
+      const url = config.url;
+      if (url.startsWith('/') && !url.startsWith('/api/')) {
+        config.url = url.slice(1);
+      }
+    }
+
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
