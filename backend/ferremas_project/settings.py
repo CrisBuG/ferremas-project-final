@@ -139,6 +139,7 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_HTTPONLY = False  # Cambiar a False para debugging
 SESSION_COOKIE_SAMESITE = None  # Cambiar a None para debugging
 SESSION_COOKIE_SECURE = False  # Debe ser False en desarrollo
+CSRF_COOKIE_SAMESITE = None  # Necesario para enviar cookie CSRF en peticiones cross-site
 
 # REST Framework con configuración más permisiva para debugging
 REST_FRAMEWORK = {
