@@ -13,7 +13,7 @@ SECRET_KEY = 'django-insecure-ferremas-project-secret-key-change-in-production'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DJANGO_DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,*.onrender.com').split(',')
 
 
 
@@ -138,8 +138,10 @@ SESSION_SAVE_EVERY_REQUEST = True
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_HTTPONLY = False  # Cambiar a False para debugging
 SESSION_COOKIE_SAMESITE = None  # Cambiar a None para debugging
-SESSION_COOKIE_SECURE = False  # Debe ser False en desarrollo
+# Cookies deben ser Secure cuando SameSite=None (producción). Ajuste según DEBUG.
+SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SAMESITE = None  # Necesario para enviar cookie CSRF en peticiones cross-site
+CSRF_COOKIE_SECURE = not DEBUG
 
 # REST Framework con configuración más permisiva para debugging
 REST_FRAMEWORK = {
@@ -183,8 +185,14 @@ CORS_ALLOWED_ORIGINS = [
     "https://webpay3g.transbank.cl",
     "https://webpay3gint.transbank.cl",
     "https://crisbug.github.io",
+    # Dominios específicos (si tu sitio usa uno de estos, siguen permitidos)
     "https://ferremas-project-final-1.onrender.com",
     "https://ferremas-project-final-1l1.onrender.com",
+]
+
+# Permitir cualquier subdominio de Render por regex (https)
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https:\/\/.*\.onrender\.com$",
 ]
 
 CORS_ALLOW_HEADERS = [
@@ -208,6 +216,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://crisbug.github.io',
     'https://ferremas-project-final-1.onrender.com',
     'https://ferremas-project-final-1l1.onrender.com',
+    'https://*.onrender.com',
 ]
 
 # Permitir añadir orígenes extra vía variable de entorno en producción
