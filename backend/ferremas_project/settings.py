@@ -163,8 +163,8 @@ REST_FRAMEWORK = {
 
 
 
-# CORS settings - Más específico para Transbank
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS settings - permitir credenciales desde dominios específicos
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
 # Agregar esta configuración
@@ -183,6 +183,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://webpay3g.transbank.cl",
     "https://webpay3gint.transbank.cl",
     "https://crisbug.github.io",
+    "https://ferremas-project-final-1.onrender.com",
+    "https://ferremas-project-final-1l1.onrender.com",
 ]
 
 CORS_ALLOW_HEADERS = [
@@ -204,6 +206,8 @@ CSRF_TRUSTED_ORIGINS = [
     'https://webpay3g.transbank.cl',
     'https://webpay3gint.transbank.cl',
     'https://crisbug.github.io',
+    'https://ferremas-project-final-1.onrender.com',
+    'https://ferremas-project-final-1l1.onrender.com',
 ]
 
 # Permitir añadir orígenes extra vía variable de entorno en producción
