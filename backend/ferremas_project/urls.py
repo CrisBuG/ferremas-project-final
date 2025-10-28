@@ -11,6 +11,5 @@ urlpatterns = [
     # path('', TemplateView.as_view(template_name='index.html')),
 ]
 
-# Configuración para servir archivos multimedia durante el desarrollo
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Servir archivos multimedia también en producción (Render)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

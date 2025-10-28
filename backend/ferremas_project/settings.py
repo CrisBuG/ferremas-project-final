@@ -70,6 +70,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'ferremas_project.wsgi.application'
 
+# Render/Proxy: asegura que Django detecte HTTPS detrás del proxy
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 import dj_database_url
