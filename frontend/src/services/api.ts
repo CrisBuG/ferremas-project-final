@@ -1,8 +1,9 @@
 import axios from 'axios';
 
 // Configuración base de Axios
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -20,7 +21,7 @@ apiClient.interceptors.request.use(
     
     // Obtener CSRF token si es necesario
     try {
-      const csrfResponse = await fetch('http://localhost:8000/api/auth/csrf/', {
+      const csrfResponse = await fetch(`${API_BASE_URL}/auth/csrf/`, {
         credentials: 'include'
       });
       const csrfData = await csrfResponse.json();
@@ -217,7 +218,7 @@ export default apiClient;
 
 // Cliente específico para pagos simulados (sin interceptor de redirección)
 export const paymentApiClient = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000',
+  baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
