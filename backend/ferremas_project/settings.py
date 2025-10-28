@@ -205,6 +205,11 @@ CSRF_TRUSTED_ORIGINS = [
     'https://crisbug.github.io',
 ]
 
+# Permitir añadir orígenes extra vía variable de entorno en producción
+_extra_csrf = os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', '')
+if _extra_csrf:
+    CSRF_TRUSTED_ORIGINS += [o.strip() for o in _extra_csrf.split(',') if o.strip()]
+
 # Configuración de logging para debugging
 LOGGING = {
     'version': 1,
