@@ -1005,7 +1005,8 @@ const ProductDetailPage: React.FC = () => {
   useEffect(() => {
     const fetchDollarRate = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/exchange-rate/');
+        const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+        const response = await fetch(`${apiBase}/exchange-rate/`);
         const data = await response.json();
         setDollarRate(data.rate);
       } catch (error) {

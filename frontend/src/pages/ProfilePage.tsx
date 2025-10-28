@@ -962,8 +962,10 @@ const loadReturns = async () => {
       if (user.profile_picture.startsWith('http')) {
         return user.profile_picture;
       }
-      // Si es una ruta relativa, construir la URL completa
-      return `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}${user.profile_picture}`;
+      // Si es una ruta relativa, construir la URL completa usando el origen del backend
+      // Tomamos REACT_APP_API_URL (que normalmente termina en /api) y removemos el sufijo /api
+      const backendOrigin = (process.env.REACT_APP_API_URL || 'http://localhost:8000/api').replace(/\/api\/?$/, '');
+      return `${backendOrigin}${user.profile_picture}`;
     }
     // Imagen por defecto
     return 'https://via.placeholder.com/120x120/667eea/ffffff?text=Usuario';
