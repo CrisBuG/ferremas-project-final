@@ -1,7 +1,11 @@
 import axios from 'axios';
 
 // Configuración base de Axios
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+let API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+// Normaliza para asegurar que incluya el prefijo '/api' en producción
+if (!API_BASE_URL.endsWith('/api')) {
+  API_BASE_URL = API_BASE_URL.replace(/\/$/, '') + '/api';
+}
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
