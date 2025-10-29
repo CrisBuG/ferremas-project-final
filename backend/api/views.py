@@ -126,16 +126,22 @@ def login_view(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_view(request):
+    username = request.data.get('username')
     email = request.data.get('email')
     password = request.data.get('password')
     first_name = request.data.get('first_name', '')
     last_name = request.data.get('last_name', '')
     
-    # Validación acorde al modelo CustomUser (USERNAME_FIELD = 'email')
-    if not all([email, password]):
+    if not all([username, email, password]):
         return Response({
             'success': False,
-            'error': 'Email y password son requeridos'
+            'error': 'Username, email y password son requeridos'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if CustomUser.objects.filter(username=username).exists():
+        return Response({
+            'success': False,
+            'error': 'El username ya existe'
         }, status=status.HTTP_400_BAD_REQUEST)
     
     if CustomUser.objects.filter(email=email).exists():
@@ -146,25 +152,24 @@ def register_view(request):
     
     try:
         user = CustomUser.objects.create_user(
+            username=username,
             email=email,
             password=password,
             first_name=first_name,
-            last_name=last_name,
-            is_staff=False,  # asegurar que sea no staff
-            role='cliente'
+            last_name=last_name
         )
         login(request, user)
         return Response({
             'success': True,
             'user': {
                 'id': user.id,
-                'username': getattr(user, 'username', None),
+                'username': user.username,
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
                 'is_staff': user.is_staff
             }
-        }, status=status.HTTP_201_CREATED)
+        })
     except Exception as e:
         return Response({
             'success': False,

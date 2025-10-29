@@ -63,28 +63,21 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
-      // Considerar HashRouter: usar hash si existe
-      const currentPath = window.location.hash || window.location.pathname;
-      const isOnAuthPages = (
-        currentPath.includes('/login') ||
-        currentPath.includes('#/login') ||
-        currentPath.includes('/register') ||
-        currentPath.includes('#/register')
-      );
-      const isPaymentSimulationPage = 
-        error.config?.url?.includes('/simulate-confirmation/') ||
-        error.config?.url?.includes('/payments/transbank/simulation/');
-      
-      if (!isOnAuthPages && !isPaymentSimulationPage) {
-        // Redirigir correctamente en aplicaciones con HashRouter
-        if (window.location.hash !== '#/login') {
-          window.location.hash = '#/login';
-        }
-      }
+  if (error.response?.status === 401) {
+    // No redirigir automáticamente si estamos en páginas de pago simulado
+    // o si ya estamos en login
+    const currentPath = window.location.pathname;
+    const isPaymentSimulationPage = 
+      error.config?.url?.includes('/simulate-confirmation/') ||
+      error.config?.url?.includes('/payments/transbank/simulation/');
+    
+    if (!currentPath.includes('/login') && !isPaymentSimulationPage) {
+      window.location.href = '/login';
     }
-    return Promise.reject(error);
   }
+  return Promise.reject(error);
+}
+
 );
 
 
