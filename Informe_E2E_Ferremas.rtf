@@ -1,0 +1,107 @@
+{\rtf1\ansi\deff0{\fonttbl{\f0 Calibri;}{\f1 Consolas;}}\viewkind4\uc1\pard\sa200\sl276\slmult1\f0\fs24\b Informe de Pruebas E2E (Selenium) - Ferremas\b0\par
+\par
+\b Resumen Ejecutivo\b0\par
+Se ejecut\'f3 la suite E2E en Windows 11 con Python 3.12.10, utilizando pytest 8.4.2 y el plugin pytest-html 4.1.1. Navegador: Microsoft Edge en modo headless con viewport tablet (768x1024). Frontend: http://localhost:3000/. Backend: http://localhost:8000/. Resultado: 3 pruebas aprobadas, 5 pruebas omitidas. Duraci\'f3n total: 24.77s. Ubicaci\'f3n del reporte HTML: e2e\\selenium_report.html.\par
+\par
+\b Entorno de Prueba\b0\par
+- SO: Windows 11 (10.0.26100)\par
+- Python: 3.12.10\par
+- PyTest: 8.4.2\par
+- Plugins: html 4.1.1, metadata 3.1.1\par
+- Navegador: Edge (headless)\par
+- Viewport: Tablet 768x1024\par
+- Frontend: http://localhost:3000/\par
+- Backend: http://localhost:8000/\par
+\par
+\b Preparaci\'f3n\b0\par
+- Servidor backend iniciado con: python manage.py runserver 8000\par
+- Servidor frontend iniciado con: npm start (Webpack Dev Server en http://localhost:3000/)\par
+- Dependencias instaladas: pip, pytest, pytest-html, selenium, webdriver-manager, requests\par
+\par
+\b Resultados Detallados por Caso\b0\par
+\par
+\b 1) test_access_control.py::test_cliente_no_ve_dashboards\b0\par
+- Estado: Passed\par
+- Duraci\'f3n: 00:00:14\par
+- Objetivo: Validar que un cliente no ve enlaces de Panel Admin, Bodega y Contabilidad.\par
+- Flujo: Cargar home, esperar navbar, verificar ausencia de textos.\par
+- Capturas: No se adjuntaron.\par
+- C\'f3digo (fragmento):\par
+\f1 import pytest\par
+from selenium.webdriver.common.by import By\par
+from selenium.webdriver.support.ui import WebDriverWait\par
+from selenium.webdriver.support import expected_conditions as EC\par
+\par
+@pytest.mark.e2e\par
+def test_cliente_no_ve_dashboards(driver, ensure_frontend):\par
+    driver.get(ensure_frontend + "/")\par
+    wait = WebDriverWait(driver, 10)\par
+    wait.until(EC.presence_of_element_located((By.TAG_NAME, "nav")))\par
+    page = driver.page_source\par
+    assert "Panel Admin" not in page\par
+    assert "Bodega" not in page\par
+    assert "Contabilidad" not in page\f0\par
+\par
+\b 2) test_access_control.py::test_protegido_redirige_sin_permiso\b0\par
+- Estado: Passed\par
+- Duraci\'f3n: 00:00:05\par
+- Objetivo: Comprobar redirecci\'f3n ante acceso a admin sin permisos.\par
+- Flujo: Navegar a /admin-dashboard y esperar URL de login o inicio.\par
+- Capturas: No se adjuntaron.\par
+\par
+\b 3) test_auth_flow.py::test_redirect_unauth_to_login\b0\par
+- Estado: Passed\par
+- Duraci\'f3n: 43 ms\par
+- Objetivo: Usuario no autenticado debe ser redirigido a /login al visitar /profile.\par
+- Capturas: No se adjuntaron.\par
+\par
+\b 4) test_auth_flow.py::test_register_and_login\b0\par
+- Estado: Skipped (setup)\par
+- Duraci\'f3n: 00:00:04\par
+- Motivo: Backend no disponible en http://localhost:8000.\par
+- Objetivo: Registrar usuario \u0026 medir tiempo de login.\par
+\par
+\b 5) test_reports_inventory.py::test_generar_reporte_inventario_tiempo\b0\par
+- Estado: Skipped\par
+- Duraci\'f3n: 96 ms\par
+- Motivo: Usuario no tiene acceso a Bodega; prueba aplicable solo para is_staff.\par
+- Objetivo: Generar reporte de inventario y validar fila "Resumen de Inventario" y tiempo < 10s.\par
+\par
+\b 6) test_reports_permissions.py::test_nonstaff_cannot_generate_reports\b0\par
+- Estado: Skipped (setup)\par
+- Duraci\'f3n: 0 ms\par
+- Motivo: Backend no disponible en http://localhost:8000.\par
+- Objetivo: Usuario no-staff no debe ver enlaces de dashboards ni bot\'f3n de reportes, y debe ser redirigido en accesos directos.\par
+\par
+\b 7) test_responsive_tablet.py::test_cp_nfn_002_tablet_legibilidad\b0\par
+- Estado: Skipped\par
+- Duraci\'f3n: 29 ms\par
+- Motivo: Usuario no tiene acceso a Bodega; prueba aplicable solo para is_staff.\par
+- Objetivo: Validar legibilidad en tablet (font-size tabs >=14px, botones >=48x48, sin overflow horizontal).\par
+\par
+\b 8) test_stock_movement_tablet.py::test_cp_nfn_006_stock_movement_tablet\b0\par
+- Estado: Skipped (setup)\par
+- Duraci\'f3n: 1 ms\par
+- Motivo: Backend no disponible en http://localhost:8000.\par
+- Objetivo: Registrar movimiento de stock (Entrada, cantidad=1, motivo) y verificar en tabla de Movimientos Recientes.\par
+\par
+\b Observaciones\b0\par
+- Frontend mostr\'f3 advertencias React sobre props no reconocidas (primary, isOpen).\par
+- Selenium Manager utiliz\'f3 msedgedriver en cach\'e por errores de descarga y telemetr\'eda externa (no bloqueante).\par
+\par
+\b Conclusiones y Recomendaciones\b0\par
+- La funcionalidad de control de acceso b\'e1sica est\'e1 validada (3 pruebas Passed).\par
+- Las pruebas dependientes de roles staff o backend activo quedaron omitidas; re-ejecutar habilitando backend y cuentas staff.\par
+- Sugerencia: habilitar captura de pantallas autom\'e1tica en fallos y pasos clave (hooks de pytest-html) para enriquecer el reporte.\par
+\par
+\b Ubicaci\'f3n de Artefactos\b0\par
+- Reporte HTML: c:\\Users\\crist\\Documents\\ferremas-project-final-main\\e2e\\selenium_report.html\par
+- Pruebas E2E: carpeta c:\\Users\\crist\\Documents\\ferremas-project-final-main\\e2e\\\par
+\par
+\b Anexo: Comandos Utilizados\b0\par
+- python manage.py runserver 8000\par
+- npm start (frontend)\par
+- pytest -m e2e --html=e2e/selenium_report.html --self-contained-html\par
+\par
+\b Fin del informe\b0\par
+}

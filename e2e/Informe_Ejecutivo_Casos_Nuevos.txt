@@ -1,0 +1,59 @@
+Informe Ejecutivo – Nuevos Casos de Prueba (Carrito)
+
+Resumen
+- Se añadieron 3 casos de prueba E2E centrados en el carrito y validaciones de stock.
+- Se actualizó el archivo `e2e/plan_pruebas_nuevo.csv` con las tres nuevas entradas: 021, 022 y 023.
+- Se implementaron las pruebas en `e2e/test_new_cases.py` con los identificadores:
+  - `test_cp_func_011_cart_increase_respects_stock`
+  - `test_cp_func_012_clear_cart_shows_empty`
+  - `test_cp_func_013_decrement_disabled_then_enabled`
+
+Detalle de Casos
+- CP-FUNC-011: Aumentar cantidad en carrito respetando stock real
+  - Objetivo: Permitir aumentar cantidad hasta el stock disponible; bloquear exceso con error UI.
+  - Pasos resumidos:
+    1) Registrar usuario vía API y login en UI.
+    2) Seleccionar producto con `stock >= 2` vía API.
+    3) Añadir al carrito y aumentar cantidad hasta el stock.
+    4) Intentar exceder stock; verificar mensaje de error y que no incrementa.
+  - Criterios de aceptación: Error visible; cantidad se mantiene; sin actualización de totales por exceso.
+
+- CP-FUNC-012: Vaciar carrito y verificar estado vacío y totales
+  - Objetivo: Confirmar que "Vaciar Carrito" limpia ítems y muestra "Tu carrito está vacío".
+  - Pasos: Login, añadir producto, ir a `/cart`, pulsar "Vaciar Carrito", verificar mensaje de vacío.
+  - Criterios: Mensaje presente; no quedan ítems; totales en 0.
+
+- CP-FUNC-013: Control '-' deshabilitado en qty=1 y habilitado tras aumento
+  - Objetivo: Validar estado de deshabilitado del botón de decremento a cantidad 1 y su habilitación al incrementar.
+  - Pasos: Login, añadir producto con `stock >= 2`, verificar `-` deshabilitado, pulsar `+`, verificar `-` habilitado.
+  - Criterios: Estado `disabled` correcto según cantidad.
+
+Referencias de Código
+- Frontend: `frontend/src/pages/CartPage.tsx`
+  - `updateQuantity(itemId, newQuantity)`: clampa `newQuantity >= 1`, realiza `cartService.updateCartItem` y maneja errores.
+  - Botones de cantidad: `QuantityButton` para `+` y `-`; `-` deshabilitado cuando `item.quantity <= 1`.
+  - Botón "Vaciar Carrito" presente y funcional.
+- Backend: `api/views.py` (CartViewSet)
+  - `add_item` y `update_item`: validan stock antes de agregar/actualizar; retornan error si insuficiente.
+- Pruebas E2E: `e2e/test_new_cases.py`
+  - Nuevas funciones de test incluidas con setup de usuario por API y flujos UI.
+
+Comandos de Terminal (Ejecución de las 3 pruebas nuevas)
+- Comando recomendado:
+  `python -m pytest -q e2e/test_new_cases.py -k "test_cp_func_011_cart_increase_respects_stock or test_cp_func_012_clear_cart_shows_empty or test_cp_func_013_decrement_disabled_then_enabled" --disable-warnings`
+
+- Intento de ejecución y salida observada en entorno actual:
+  `pytest -q e2e/test_new_cases.py -k "test_cp_func_011_cart_increase_respects_stock or test_cp_func_012_clear_cart_shows_empty or test_cp_func_013_decrement_disabled_then_enabled" --disable-warnings`
+  Resultado:
+  "pytest" no se reconoce como un comando interno o externo, programa o archivo por lotes ejecutable.
+
+Requisitos para ejecución exitosa
+- Tener `pytest` instalado y disponible en PATH (`pip install pytest`).
+- Frontend accesible en `ensure_frontend` y Backend accesible en `ensure_backend` (configurados en `e2e/conftest.py`).
+- Navegadores y drivers (Edge/Firefox) disponibles según configuración del conftest.
+
+Conclusiones
+- Las 3 pruebas nuevas cubren validaciones críticas del carrito: respeto de stock, limpieza del carrito y estados de controles de cantidad.
+- La integración con la API para seleccionar productos con stock garantiza robustez y reduce flakiness.
+- Una vez operativo el entorno (pytest + servidores), estas pruebas permitirán validar los criterios funcionales solicitados.
+
