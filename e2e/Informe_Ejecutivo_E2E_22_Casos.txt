@@ -1,0 +1,223 @@
+Informe Ejecutivo E2E — Suite Actualizada a 22 Casos
+
+Resumen Ejecutivo
+- Alcance: Suite E2E consolidada con 22 casos: 4 de completar (UI/flujo mínimo), 11 funcionales (autenticación, acceso por rol, carrito, inventario y reportes) y 7 no funcionales/UX/performance (tablet, navegación, feedback, consistencia y cross-browser).
+- Resultado global (última corrida registrada): ejecución parcial con 4 pasados, 1 omitido y 5 warnings en 22.96s (ver e2e/pytest_suite_last.txt). La corrida completa de los 22 casos está pendiente de ejecutar en entorno estable.
+- Evidencias y reportes: disponibles en e2e/selenium_report.html, e2e/report_full.html, e2e/report_cart.html, e2e/report_cart_only.html y e2e/report_reports_permissions.html.
+
+Métricas Destacadas (últimas observadas en código/console)
+- [METRIC] login_time_seconds: tiempo de respuesta de login (test_register_and_login).
+- [METRIC] login_button_disabled_initial=True (test_cp_func_002_login_button_disabled_during_loading).
+- [METRIC] inventory_report_time_seconds: generación de reporte de inventario (test_generar_reporte_inventario_tiempo).
+- [METRIC] nonstaff_login_time_seconds: login y navegación inicial de usuario no staff (test_nonstaff_cannot_generate_reports).
+- [METRIC] home_to_products_time_seconds: navegación Home -> Products (test_cp_nfn_003_home_navigation_time).
+- [METRIC] cp_nfn_001_time_seconds: eficiencia de registro de movimiento (Entrada) (test_cp_nfn_001_efficiency_tablet).
+- [METRIC] cp_nfn_004_out_time_seconds: tiempo de feedback en Salida (test_cp_nfn_004_out_flow_feedback).
+- [METRIC] tablet_font_control_px / tablet_font_reportes_px y tablet_btn_*_size: legibilidad y tamaño en tablet (test_cp_nfn_002_tablet_legibilidad).
+
+Estado de Tipo
+- Completar: Ids 001–004.
+- Funcional: Ids 005–015.
+- No funcional: Ids 016–022.
+
+Artefactos y Ubicaciones de Prueba
+- Suite E2E y casos nuevos: e2e/test_new_cases.py.
+- Login y flujo de auth: e2e/test_auth_flow.py.
+- Acceso/control por rol: e2e/test_access_control.py y e2e/test_reports_permissions.py.
+- Carrito: e2e/test_cart_flow.py.
+- Inventario y reportes: e2e/test_reports_inventory.py.
+- Responsive/Tablet: e2e/test_responsive_tablet.py y e2e/test_stock_movement_tablet.py.
+- Logs de ejecución: e2e/pytest_suite_last.txt y e2e/pytest_last.txt.
+
+Detalle de Casos (22)
+Casos de Completar
+Id 001 — Botón de Login deshabilitado hasta credenciales válidas
+- Tipo: completar
+- Objetivo: asegurar que el botón de Login permanezca deshabilitado durante la fase de carga inicial y se habilite correctamente.
+- Test: test_cp_func_002_login_button_disabled_during_loading (e2e/test_new_cases.py)
+- Métrica: login_button_disabled_initial=True.
+- Evidencia: selenium_report.html.
+
+Id 002 — Registro y login con validaciones
+- Tipo: completar
+- Objetivo: validar el flujo básico de registro/login y el feedback de UI.
+- Test: test_register_and_login (e2e/test_auth_flow.py)
+- Métrica: login_time_seconds (última captura en metadata pytest).
+- Evidencia: selenium_report.html; report_full.html.
+
+Id 003 — Cliente no ve dashboards de administración
+- Tipo: completar
+- Objetivo: garantizar que un usuario sin permisos no vea entradas de Panel Admin, Bodega o Contabilidad.
+- Test: test_cliente_no_ve_dashboards (e2e/test_access_control.py)
+- Evidencia: selenium_report.html.
+
+Id 004 — Acceso protegido redirige sin permiso
+- Tipo: completar
+- Objetivo: al acceder a /admin-dashboard sin permisos, redirigir a login o inicio.
+- Test: test_protegido_redirige_sin_permiso (e2e/test_access_control.py)
+- Evidencia: selenium_report.html.
+
+Casos Funcionales
+Id 005 — Carrito: agregar producto
+- Tipo: funcional
+- Objetivo: agregar producto desde detalle y verificar carrito no vacío.
+- Test: test_cart_add_item (e2e/test_cart_flow.py)
+- Evidencia: report_cart.html; report_cart_only.html.
+
+Id 006 — Carrito: editar cantidad
+- Tipo: funcional
+- Objetivo: incrementar y decrementar cantidad del primer ítem.
+- Test: test_cart_edit_quantity (e2e/test_cart_flow.py)
+- Evidencia: report_cart.html; report_cart_only.html.
+
+Id 007 — Navegación Home -> About
+- Tipo: funcional
+- Objetivo: validar navegación correcta a About y render de ruta.
+- Test: test_cp_func_001_home_about_navigation (e2e/test_new_cases.py)
+- Evidencia: selenium_report.html.
+
+Id 008 — Ajuste de stock
+- Tipo: funcional
+- Objetivo: registrar ajuste y confirmar éxito.
+- Test: test_cp_func_003_adjustment_stock (e2e/test_new_cases.py)
+- Evidencia: selenium_report.html.
+
+Id 009 — Registrar salida de stock
+- Tipo: funcional
+- Objetivo: registrar salida y verificar feedback de éxito.
+- Test: test_cp_func_004_salida_stock (e2e/test_new_cases.py)
+- Evidencia: selenium_report.html.
+
+Id 010 — Salida mayor al stock se clampa a 0
+- Tipo: funcional
+- Objetivo: asegurar comportamiento actual de clamp a 0 cuando la salida supera el stock.
+- Test: test_cp_func_005_out_greater_than_stock_clamps_to_zero (e2e/test_new_cases.py)
+- Evidencia: selenium_report.html.
+
+Id 011 — Reportes: ausencia de botón Exportar CSV
+- Tipo: funcional
+- Objetivo: confirmar que no existe el botón “Exportar CSV” en reportes.
+- Test: test_cp_func_007_no_export_csv_button (e2e/test_new_cases.py)
+- Evidencia: selenium_report.html.
+
+Id 012 — Devoluciones: abrir y cancelar modal
+- Tipo: funcional
+- Objetivo: abrir modal “Registrar Devolución” y cancelar; validar cierre.
+- Test: test_cp_func_008_open_and_cancel_return_modal (e2e/test_new_cases.py)
+- Evidencia: selenium_report.html.
+
+Id 013 — Redirección de perfil sin sesión a login
+- Tipo: funcional
+- Objetivo: visitar /#/profile sin sesión debe redirigir a /login.
+- Test: test_redirect_unauth_to_login (e2e/test_auth_flow.py)
+- Evidencia: selenium_report.html.
+
+Id 014 — Usuario no-staff: no puede generar reportes
+- Tipo: funcional
+- Objetivo: registrar usuario no staff y validar ausencia de enlaces y botón de generación.
+- Test: test_nonstaff_cannot_generate_reports (e2e/test_reports_permissions.py)
+- Métrica: nonstaff_login_time_seconds.
+- Evidencia: report_reports_permissions.html.
+
+Id 015 — Generar reporte de inventario (tiempo y contenido)
+- Tipo: funcional
+- Objetivo: generar nuevo reporte, aumentar filas y validar tipo “Resumen de Inventario”.
+- Test: test_generar_reporte_inventario_tiempo (e2e/test_reports_inventory.py)
+- Métrica: inventory_report_time_seconds (< 10s).
+- Evidencia: selenium_report.html; report_full.html.
+
+Casos No Funcionales / UX / Performance
+Id 016 — Eficiencia: registro de movimiento (Entrada)
+- Tipo: no funcional (performance)
+- Objetivo: medir tiempo desde submit del modal hasta mensaje de éxito (< 5s).
+- Test: test_cp_nfn_001_efficiency_tablet (e2e/test_new_cases.py)
+- Métrica: cp_nfn_001_time_seconds.
+
+Id 017 — Tablet: legibilidad y tamaños mínimos
+- Tipo: no funcional (responsive/UX)
+- Objetivo: font-size tabs >= 14px; botones >= 48x48px; sin overflow horizontal.
+- Test: test_cp_nfn_002_tablet_legibilidad (e2e/test_responsive_tablet.py)
+- Métricas: tablet_font_control_px, tablet_font_reportes_px, tablet_btn_movimiento_size, tablet_btn_registrar_size.
+
+Id 018 — Navegación Home -> Products (latencia)
+- Tipo: no funcional (performance)
+- Objetivo: medir latencia de navegación (< 1.5s).
+- Test: test_cp_nfn_003_home_navigation_time (e2e/test_new_cases.py)
+- Métrica: home_to_products_time_seconds.
+
+Id 019 — Fluidez de UI: feedback de “Salida”
+- Tipo: no funcional (performance/UX)
+- Objetivo: tiempo hasta mensaje de éxito en salida (< 3s).
+- Test: test_cp_nfn_004_out_flow_feedback (e2e/test_new_cases.py)
+- Métrica: cp_nfn_004_out_time_seconds.
+
+Id 020 — Tablet: registrar movimiento de stock
+- Tipo: no funcional (responsive/UX)
+- Objetivo: flujo completo de registro en resolución tablet y ver movimiento en tabla.
+- Test: test_cp_nfn_006_stock_movement_tablet (e2e/test_stock_movement_tablet.py)
+- Evidencia: selenium_report.html.
+
+Id 021 — Home: elementos clave en cross-browser
+- Tipo: no funcional (compatibilidad)
+- Objetivo: validar presencia de elementos clave en Home en distintos navegadores.
+- Test: test_cp_nfn_007_home_cross_browser_elements (e2e/test_new_cases.py)
+- Evidencia: selenium_report.html.
+
+Id 022 — Consistencia UI: secuencia Entrada -> Salida
+- Tipo: no funcional (consistencia/estado)
+- Objetivo: mantener coherencia de stock tras entrada (+2) y salida (-1).
+- Test: test_cp_nfn_010_consistency_in_out_sequence (e2e/test_new_cases.py)
+- Evidencia: selenium_report.html.
+
+Resultados de Ejecución y Evidencias
+- Últimas corridas registradas: 4 pasados, 1 omitido, 5 warnings (parcial). Ver e2e/pytest_suite_last.txt y e2e/pytest_last.txt.
+- Evidencias en consola/metadata:
+  - “[METRIC] login_button_disabled_initial=True” (Id 001).
+  - “[METRIC] inventory_report_time_seconds=…s” (Id 015).
+  - “[METRIC] nonstaff_login_time_seconds=…s” (Id 014).
+  - “[METRIC] home_to_products_time_seconds=…s” (Id 018).
+  - “[METRIC] cp_nfn_001_time_seconds=…s” (Id 016).
+  - “[METRIC] cp_nfn_004_out_time_seconds=…s” (Id 019).
+  - Tablet: font-size y boundingClientRect de botones (Id 017) capturados como metadata.
+- Reporte HTML consolidado: e2e/selenium_report.html ordena por estado y muestra resultados por caso.
+
+Cobertura Actual
+Funcional
+- Autenticación y registro: cubiertos por Ids 002, 013, 014.
+- Acceso por rol y permisos: cubiertos por Ids 003, 004, 014.
+- Carrito: agregar y edición de cantidad cubiertos (Ids 005–006).
+- Inventario (ajuste/salida/consistencia y generación de reporte): cubiertos (Ids 008–010, 015, 022).
+- Navegación básica: Home->About (Id 007).
+
+No Funcional
+- Performance: Home->Products, feedback en Salida, eficiencia de registro de movimiento (Ids 016, 018, 019).
+- Responsive/Tablet: legibilidad y flujo de registro en tablet (Ids 017, 020).
+- Compatibilidad: elementos Home en navegadores (Id 021).
+- Consistencia UI/estado: secuencia Entrada->Salida (Id 022).
+
+Brechas y Riesgos
+- Corrida completa de 22 casos pendiente; algunas omisiones dependen de sesión/seed y estabilidad de backend.
+- Marcador pytest “e2e” no registrado: genera PytestUnknownMarkWarning; registrar en pytest.ini para eliminar warnings.
+- Seed/fixtures: para pruebas de inventario y carrito, se recomienda datos iniciales estables para evitar skips.
+- Presupuesto de performance (budgets) formal por vista pendiente; hoy las métricas existen pero sin umbrales globales.
+- Cobertura de UX Contacto/Sugerencias y compatibilidad cross-browser extendida (Edge/Chrome/Firefox) aún parcial.
+
+Recomendaciones y Próximos Pasos
+- Backend/Sesiones: habilitar seed/control de usuarios y endpoints estables de checkout para permitir corridas completas sin skips.
+- Pytest: agregar en pytest.ini la marca “[pytest]\nmarkers = e2e: end-to-end suite” para retirar warnings.
+- Datos: crear fixtures de productos y stock base; limpiar estado entre pruebas (setup/teardown) para consistencia.
+- Performance: definir budgets por vista (Home, Products, Bodega) y alertas en CI.
+- Automatización: programar job que ejecute la suite completa y publique e2e/selenium_report.html y CSV/TSV de resultados.
+
+Anexo — Listado y Ubicación por Archivo
+- e2e/test_new_cases.py: 12 pruebas (cp_nfn_* y cp_func_*).
+- e2e/test_cart_flow.py: 2 pruebas (carrito add/edit).
+- e2e/test_auth_flow.py: 2 pruebas (redirect y register+login).
+- e2e/test_access_control.py: 2 pruebas (cliente sin dashboards y redirección protegida).
+- e2e/test_reports_inventory.py: 1 prueba (tiempo y contenido de reporte).
+- e2e/test_reports_permissions.py: 1 prueba (no staff sin acceso a reportes).
+- e2e/test_responsive_tablet.py: 1 prueba (legibilidad y tamaños en tablet).
+- e2e/test_stock_movement_tablet.py: 1 prueba (flujo de movimiento en tablet).
+
+Notas
+- Este informe refleja 22 casos definidos en el repositorio (ver rutas anteriores). Las métricas indicadas se recopilan vía pytest.metadata y prints [METRIC]; para valores concretos, ejecutar la suite completa y consolidar a CSV/TSV.
