@@ -454,7 +454,7 @@ const Navbar: React.FC = () => {
             )}
             
             {/* Panel de Bodeguero */}
-            {user.is_staff && (
+            {(user.is_staff || user.role === 'bodeguero') && (
               <NavLink to="/warehouse-dashboard" onClick={() => setIsOpen(false)}>
                 <FaWarehouse /> Bodega
               </NavLink>

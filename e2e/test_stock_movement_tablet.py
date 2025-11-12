@@ -8,7 +8,8 @@ import time
 
 
 @pytest.mark.e2e
-def test_cp_nfn_006_stock_movement_tablet(driver, ensure_frontend, ensure_backend):
+@pytest.mark.parametrize("movement_type,qty", [("in", 1), ("out", 1)])
+def test_cp_nfn_006_stock_movement_tablet(driver, ensure_frontend, ensure_backend, staff_credentials, movement_type, qty):
     """
     CP-NFN-006: Registrar movimiento de stock en tablet (Firefox 768x1024)
     Flujo:
@@ -47,8 +48,11 @@ def test_cp_nfn_006_stock_movement_tablet(driver, ensure_frontend, ensure_backen
                     raise
                 continue
 
-    staff_email = "bodeguero_e2e@example.com"
-    staff_password = "S3lenium!"
+    if staff_credentials:
+        staff_email, staff_password = staff_credentials
+    else:
+        staff_email = "bodeguero_e2e@example.com"
+        staff_password = "S3lenium!"
 
     # Login vía UI
     driver.get(ensure_frontend + "/#/login")
@@ -87,14 +91,14 @@ def test_cp_nfn_006_stock_movement_tablet(driver, ensure_frontend, ensure_backen
         pytest.skip("No hay productos disponibles para registrar movimiento.")
     valid_options[0].click()
 
-    # Tipo de movimiento: Entrada
+    # Tipo de movimiento parametrizado
     movement_select_xpath = "//h2[contains(., 'Registrar Movimiento de Stock')]/following::label[contains(., 'Tipo de Movimiento')][1]/following::select[1]"
     type_select = wait.until(EC.element_to_be_clickable((By.XPATH, movement_select_xpath)))
-    Select(type_select).select_by_value("in")
+    Select(type_select).select_by_value(movement_type)
 
-    # Cantidad: 1
+    # Cantidad parametrizada
     qty_input_xpath = "//h2[contains(., 'Registrar Movimiento de Stock')]/following::label[contains(., 'Cantidad')][1]/following::input[@type='number'][1]"
-    retry_send_keys(By.XPATH, qty_input_xpath, "1")
+    retry_send_keys(By.XPATH, qty_input_xpath, str(qty))
 
     # Motivo
     reason_text = f"E2E movimiento de stock {int(time.time())}"
@@ -117,9 +121,10 @@ def test_cp_nfn_006_stock_movement_tablet(driver, ensure_frontend, ensure_backen
         pass
 
     # Verificar el movimiento en la tabla de 'Movimientos Recientes'
+    type_text = "Entrada" if movement_type == "in" else "Salida"
     row_xpath = (
         "//h4[contains(., 'Movimientos Recientes')]/following::table[1]//tr["
-        "td[contains(., 'Entrada')] and td[contains(., '" + reason_text + "')] and td[contains(., 'Bodeguero')]"
+        f"td[contains(., '{type_text}')] and td[contains(., '{reason_text}')] and td[contains(., 'Bodeguero')]"
         "]"
     )
     row = wait.until(EC.presence_of_element_located((By.XPATH, row_xpath)))

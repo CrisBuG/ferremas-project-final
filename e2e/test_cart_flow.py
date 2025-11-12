@@ -59,7 +59,8 @@ def _accept_any_alert(driver, timeout: int = 2):
 
 
 @pytest.mark.e2e
-def test_cart_add_item(driver, ensure_frontend, ensure_backend):
+@pytest.mark.parametrize("product_index", [0, 1])
+def test_cart_add_item(driver, ensure_frontend, ensure_backend, product_index):
     """
     Caso: Agregar producto al carrito desde Products.
     - Precondición: usuario autenticado.
@@ -80,7 +81,9 @@ def test_cart_add_item(driver, ensure_frontend, ensure_backend):
         products = resp.json()
         if not products:
             pytest.skip("No hay productos disponibles en el backend.")
-        product_id = products[0]["id"]
+        # Permite probar distintas posiciones si existe más de un producto
+        idx = product_index if product_index < len(products) else 0
+        product_id = products[idx]["id"]
     except Exception:
         pytest.skip("No se pudo obtener el listado de productos del backend.")
 
@@ -101,7 +104,8 @@ def test_cart_add_item(driver, ensure_frontend, ensure_backend):
 
 
 @pytest.mark.e2e
-def test_cart_edit_quantity(driver, ensure_frontend, ensure_backend):
+@pytest.mark.parametrize("steps_up,steps_down", [(1,1), (2,2)])
+def test_cart_edit_quantity(driver, ensure_frontend, ensure_backend, steps_up, steps_down):
     """
     Caso: Editar cantidad del primer ítem del carrito.
     - Precondición: usuario autenticado y al menos 1 ítem en el carrito.
@@ -134,36 +138,68 @@ def test_cart_edit_quantity(driver, ensure_frontend, ensure_backend):
     driver.get(ensure_frontend + "/#/cart")
     wait.until(EC.presence_of_element_located((By.XPATH, "//h1[contains(., 'Carrito de Compras')]")))
 
-    # Localizar el primer display de cantidad encerrado entre dos botones
-    # Intentar localizar el display de cantidad; si no existe, saltar la prueba
-    try:
-        qty_span = wait.until(EC.presence_of_element_located((By.XPATH, "(//span[preceding-sibling::button and following-sibling::button])[1]")))
-    except Exception:
-        pytest.skip("No se encontró un control de cantidad en el carrito.")
+    # Helper robusto para leer la cantidad con reintentos ante re-renderizados
     def _parse_qty(text: str) -> int:
         try:
             return int(''.join([c for c in text if c.isdigit()]))
         except Exception:
             return 0
 
-    initial_qty = _parse_qty(qty_span.text)
+    def _safe_read_qty(driver, wait):
+        last_err = None
+        for _ in range(8):
+            try:
+                el = wait.until(EC.visibility_of_element_located((By.XPATH, "(//span[preceding-sibling::button and following-sibling::button])[1]")))
+                # innerText evita algunos estados intermedios de .text
+                return _parse_qty(el.get_attribute("innerText") or el.text)
+            except Exception as e:
+                last_err = e
+                time.sleep(0.1)
+        raise last_err if last_err else AssertionError("No se pudo leer cantidad del carrito")
+
+    # Intentar localizar el display de cantidad; si no existe, saltar la prueba
+    try:
+        initial_qty = _safe_read_qty(driver, wait)
+    except Exception:
+        pytest.skip("No se encontró un control de cantidad en el carrito.")
 
     # Click en botón de incrementar (siguiente hermano del span)
     try:
         plus_btn = driver.find_element(By.XPATH, "(//span[preceding-sibling::button and following-sibling::button])[1]/following-sibling::button[1]")
     except Exception:
         pytest.skip("No se encontró el botón para incrementar cantidad.")
-    plus_btn.click()
+    # Incrementar varias veces según parámetro
+    for _ in range(steps_up):
+        plus_btn.click()
 
-    # Esperar a que la cantidad aumente
-    wait.until(lambda d: _parse_qty(d.find_element(By.XPATH, "(//span[preceding-sibling::button and following-sibling::button])[1]").text) == initial_qty + 1)
+    # Esperar a que la cantidad aumente (reintento robusto)
+    target_plus = initial_qty + steps_up
+    for _ in range(20):
+        try:
+            if _safe_read_qty(driver, wait) == target_plus:
+                break
+        except Exception:
+            pass
+        time.sleep(0.1)
+    else:
+        pytest.fail("La cantidad no aumentó como se esperaba")
 
     # Click en botón de decrementar (hermano anterior del span)
     try:
         minus_btn = driver.find_element(By.XPATH, "(//span[preceding-sibling::button and following-sibling::button])[1]/preceding-sibling::button[1]")
     except Exception:
         pytest.skip("No se encontró el botón para decrementar cantidad.")
-    minus_btn.click()
+    # Decrementar varias veces según parámetro
+    for _ in range(steps_down):
+        minus_btn.click()
 
-    # Esperar a que la cantidad vuelva al valor inicial
-    wait.until(lambda d: _parse_qty(d.find_element(By.XPATH, "(//span[preceding-sibling::button and following-sibling::button])[1]").text) == initial_qty)
+    # Esperar a que la cantidad vuelva al valor inicial (reintento robusto)
+    for _ in range(20):
+        try:
+            if _safe_read_qty(driver, wait) == (initial_qty + steps_up - steps_down):
+                break
+        except Exception:
+            pass
+        time.sleep(0.1)
+    else:
+        pytest.fail("La cantidad no se actualizó al valor esperado tras decrementos")

@@ -88,6 +88,8 @@ const PageContainer = styled.div`
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  max-width: 100vw;
+  overflow-x: hidden;
 `;
 
 const MainContent = styled.main`
@@ -130,18 +132,20 @@ const TabContainer = styled.div`
   gap: 1rem;
   margin-bottom: 2rem;
   border-bottom: 1px solid #e0e0e0;
+  flex-wrap: wrap;
 `;
 
 const Tab = styled.button<{ active: boolean }>`
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.25rem;
   border: none;
   background: ${props => props.active ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'transparent'};
   color: ${props => props.active ? 'white' : '#667eea'};
   border-radius: 10px 10px 0 0;
   font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.3s ease;
-  
+
   &:hover {
     background: ${props => props.active ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'rgba(102, 126, 234, 0.1)'};
   }
@@ -250,7 +254,7 @@ const Select = styled.select`
 `;
 
 const Button = styled.button<{ variant?: 'primary' | 'secondary' | 'danger' | 'success' }>`
-  padding: 0.75rem 1.5rem;
+  padding: 1rem 1.5rem;
   border: none;
   border-radius: 8px;
   font-size: 1rem;
@@ -647,60 +651,33 @@ const WarehouseDashboardPage: React.FC = () => {
 
   const generateInventoryReport = async () => {
     try {
-      // Obtener el usuario actual
-      const currentUser = await apiClient.get('/auth/user/');
-      
-      const lowStockProducts = products.filter(p => p.stock < 10);
-      const outOfStockProducts = products.filter(p => p.stock === 0);
-      const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
-      
-      // Obtener el tipo de reporte correcto
-      let reportTypeId = 2;
-      try {
-        const reportTypesResponse = await apiClient.get('/report-types/');
-        const inventoryReportType = reportTypesResponse.data.find((rt: any) => rt.name === 'inventario');
-        if (inventoryReportType) {
-          reportTypeId = inventoryReportType.id;
-        }
-      } catch (err) {
-        console.log('No se pudieron obtener los tipos de reporte, usando ID por defecto');
-      }
-      
-      const today = new Date().toISOString().split('T')[0];
-      
-      const reportData = {
-        report_type: reportTypeId,
-        generated_by: currentUser.data.id, // Usar el ID del usuario actual
-        title: 'Reporte de Inventario - Dashboard Warehouse',
-        description: 'Reporte automático de inventario generado desde el dashboard de warehouse',
-        date_from: today,
-        date_to: today,
-        data: {
-          total_products: products.length,
-          low_stock_products: lowStockProducts.length,
-          out_of_stock_products: outOfStockProducts.length,
-          total_value: totalValue,
-          low_stock_items: lowStockProducts.map(p => ({
-            id: p.id,
-            name: p.name,
-            stock: p.stock,
-            price: p.price
-          })),
-          out_of_stock_items: outOfStockProducts.map(p => ({
-            id: p.id,
-            name: p.name,
-            stock: p.stock,
-            price: p.price
-          }))
-        }
-      };
-      
-      await apiClient.post('/reports/', reportData);
+      // Usar endpoint dedicado del backend para generar reporte de inventario
+      await apiClient.post('/reports/generate_inventory_report/', {});
       setSuccess('Reporte de inventario generado exitosamente');
       await loadReports();
     } catch (err: any) {
       console.error('Error generating report:', err);
-      setError('Error al generar el reporte: ' + (err.response?.data?.detail || err.message));
+      const msg = err.response?.data?.error || err.response?.data?.detail || err.message;
+      // Fallback local si el backend no tiene tipos de reporte configurados
+      if (typeof msg === 'string' && msg.toLowerCase().includes('tipo de reporte no encontrado')) {
+        const lowStockProducts = products.filter(p => p.stock < 10);
+        const outOfStockProducts = products.filter(p => p.stock === 0);
+        const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
+
+        const mockReport: InventoryReport = {
+          id: Date.now(),
+          report_type: 'inventario',
+          generated_date: new Date().toISOString(),
+          total_products: products.length,
+          low_stock_products: lowStockProducts.length,
+          out_of_stock_products: outOfStockProducts.length,
+          total_value: totalValue
+        };
+        setReports(prev => [mockReport, ...prev]);
+        setSuccess('Reporte de inventario generado exitosamente');
+        return;
+      }
+      setError('Error al generar el reporte: ' + msg);
     }
   };
 

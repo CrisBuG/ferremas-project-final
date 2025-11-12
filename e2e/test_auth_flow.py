@@ -8,16 +8,20 @@ from selenium.webdriver.support import expected_conditions as EC
 
 
 @pytest.mark.e2e
-def test_redirect_unauth_to_login(driver, ensure_frontend):
-    driver.get(ensure_frontend + "/#/profile")
+@pytest.mark.parametrize("protected_path", [
+    "/#/profile",
+    "/#/profile?tab=security",
+])
+def test_redirect_unauth_to_login(driver, ensure_frontend, protected_path):
+    driver.get(ensure_frontend + protected_path)
     WebDriverWait(driver, 10).until(EC.url_contains("/login"))
     assert "/login" in driver.current_url
 
 
 @pytest.mark.e2e
-def test_register_and_login(driver, ensure_frontend, ensure_backend):
+@pytest.mark.parametrize("password", ["S3lenium!", "x"])
+def test_register_and_login(driver, ensure_frontend, ensure_backend, password):
     unique_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
-    password = "S3lenium!"
 
     # Ir directamente al login y medir tiempo de respuesta (éxito o error)
     wait = WebDriverWait(driver, 10)

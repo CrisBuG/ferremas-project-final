@@ -8,7 +8,15 @@ from selenium.webdriver.support import expected_conditions as EC
 
 
 @pytest.mark.e2e
-def test_nonstaff_cannot_generate_reports(driver, ensure_frontend, ensure_backend):
+@pytest.mark.parametrize(
+    "absent_label,protected_route",
+    [
+        ("Panel Admin", "/#/admin-dashboard"),
+        ("Bodega", "/#/warehouse-dashboard"),
+        ("Contabilidad", "/#/accountant-dashboard"),
+    ],
+)
+def test_nonstaff_cannot_generate_reports(driver, ensure_frontend, ensure_backend, absent_label, protected_route):
     # Preparar usuario no staff mediante API
     unique = uuid.uuid4().hex[:8]
     email = f"operator_{unique}@example.com"
@@ -54,21 +62,13 @@ def test_nonstaff_cannot_generate_reports(driver, ensure_frontend, ensure_backen
     # Esperar que navbar esté renderizado
     wait.until(EC.presence_of_element_located((By.LINK_TEXT, "Inicio")))
 
-    assert len(driver.find_elements(By.LINK_TEXT, "Panel Admin")) == 0, "Usuario no staff no debe ver 'Panel Admin'"
-    assert len(driver.find_elements(By.LINK_TEXT, "Bodega")) == 0, "Usuario no staff no debe ver 'Bodega'"
-    assert len(driver.find_elements(By.LINK_TEXT, "Contabilidad")) == 0, "Usuario no staff no debe ver 'Contabilidad'"
+    assert len(driver.find_elements(By.LINK_TEXT, absent_label)) == 0, f"Usuario no staff no debe ver '{absent_label}'"
 
     # Validar que NO exista botón 'Generar Nuevo Reporte' en ninguna vista actual
     assert "Generar Nuevo Reporte" not in driver.page_source, "No debe aparecer 'Generar Nuevo Reporte' para no staff"
 
     # Intento de acceso directo a páginas protegidas (debería redirigir al inicio)
-    driver.get(ensure_frontend + "/#/warehouse-dashboard")
-    wait.until(EC.url_matches(r".*/#/$"))
-
-    driver.get(ensure_frontend + "/#/admin-dashboard")
-    wait.until(EC.url_matches(r".*/#/$"))
-
-    driver.get(ensure_frontend + "/#/accountant-dashboard")
+    driver.get(ensure_frontend + protected_route)
     wait.until(EC.url_matches(r".*/#/$"))
 
     # Adjuntar métrica simple de login

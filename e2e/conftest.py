@@ -66,6 +66,31 @@ def pytest_addoption(parser):
         default=os.environ.get("VIEWPORT", "desktop"),
         help="Viewport preset: desktop, tablet, mobile",
     )
+    # Presupuestos globales de performance (EP2)
+    parser.addoption(
+        "--budget-home-products",
+        action="store",
+        default=os.environ.get("BUDGET_HOME_PRODUCTS"),
+        help="Umbral en segundos para Home→Products (ej. 1.5)",
+    )
+    parser.addoption(
+        "--budget-out-feedback",
+        action="store",
+        default=os.environ.get("BUDGET_OUT_FEEDBACK"),
+        help="Umbral en segundos para confirmación de 'Salida' (ej. 3)",
+    )
+    parser.addoption(
+        "--budget-stock-efficiency",
+        action="store",
+        default=os.environ.get("BUDGET_STOCK_EFFICIENCY"),
+        help="Umbral en segundos para eficiencia de registro de stock (ej. 5)",
+    )
+    parser.addoption(
+        "--budget-inventory-report",
+        action="store",
+        default=os.environ.get("BUDGET_INVENTORY_REPORT"),
+        help="Umbral en segundos para generación de reporte de inventario (ej. 10)",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -86,6 +111,23 @@ def browser_name(request):
 @pytest.fixture(scope="session")
 def viewport(request):
     return (request.config.getoption("--viewport") or "desktop").lower()
+
+
+# Presupuestos de performance globales
+
+@pytest.fixture(scope="session")
+def perf_budgets(request):
+    def _to_float(val):
+        try:
+            return float(val) if val is not None else None
+        except ValueError:
+            return None
+    return {
+        "home_products": _to_float(request.config.getoption("--budget-home-products")),
+        "out_feedback": _to_float(request.config.getoption("--budget-out-feedback")),
+        "stock_efficiency": _to_float(request.config.getoption("--budget-stock-efficiency")),
+        "inventory_report": _to_float(request.config.getoption("--budget-inventory-report")),
+    }
 
 
 # Helper para tamaños por viewport
@@ -180,3 +222,37 @@ def ensure_backend(base_urls):
 def pytest_configure(config):
     # Registrar el marcador personalizado 'e2e' para evitar PytestUnknownMarkWarning
     config.addinivalue_line("markers", "e2e: pruebas end-to-end")
+
+
+# Credenciales opcionales de usuario staff para pruebas que requieren acceso a Bodega/Admin
+@pytest.fixture(scope="session")
+def staff_credentials():
+    email = os.environ.get("STAFF_EMAIL")
+    password = os.environ.get("STAFF_PASSWORD")
+    if email and password:
+        return (email, password)
+    return None
+
+
+# Login opcional si se proporcionan credenciales de staff por variables de entorno
+@pytest.fixture(scope="function")
+def login_if_staff(driver, ensure_frontend, staff_credentials):
+    if not staff_credentials:
+        return
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+
+    wait = WebDriverWait(driver, 12)
+    driver.get(ensure_frontend + "/#/login")
+    email_input = wait.until(EC.presence_of_element_located((By.NAME, "email")))
+    password_input = wait.until(EC.presence_of_element_located((By.NAME, "password")))
+    email_input.clear(); email_input.send_keys(staff_credentials[0])
+    password_input.clear(); password_input.send_keys(staff_credentials[1])
+    login_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
+    login_btn.click()
+    try:
+        wait.until(EC.url_matches(r".*/#/$"))
+    except Exception:
+        pass
+    return

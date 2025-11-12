@@ -5,7 +5,11 @@ from selenium.webdriver.support import expected_conditions as EC
 
 
 @pytest.mark.e2e
-def test_cp_nfn_002_tablet_legibilidad(driver, ensure_frontend):
+@pytest.mark.parametrize("min_font_px,min_btn_px", [
+    (14, 48),
+    (14, 44),
+])
+def test_cp_nfn_002_tablet_legibilidad(driver, ensure_frontend, login_if_staff, min_font_px, min_btn_px):
     """
     CP-NFN-002: Verificar legibilidad y tamaño de elementos en tablet (768x1024)
     - Font-size de tabs >= 14px
@@ -15,13 +19,22 @@ def test_cp_nfn_002_tablet_legibilidad(driver, ensure_frontend):
     driver.get(ensure_frontend + "/#/")
     wait = WebDriverWait(driver, 15)
 
-    # Si no hay enlace de Bodega (usuario no staff), omitir la prueba
-    if "Bodega" not in driver.page_source:
+    # Esperar enlace de Bodega; si no aparece, omitir la prueba
+    try:
+        wait.until(EC.presence_of_element_located((By.XPATH, "//a[contains(., 'Bodega')]")))
+    except Exception:
         pytest.skip("Usuario no tiene acceso a Bodega; prueba aplicable solo para is_staff.")
 
-    # Ir a Bodega
-    bodega_link = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(., 'Bodega')]")))
-    bodega_link.click()
+    # Ir a Bodega (fallback directo si el enlace no es clickeable en tablet/móvil)
+    try:
+        bodega_link = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(., 'Bodega')]")))
+        bodega_link.click()
+    except Exception:
+        driver.get(ensure_frontend + "/#/warehouse-dashboard")
+        try:
+            wait.until(EC.presence_of_element_located((By.XPATH, "//h1[contains(., 'Dashboard de Bodeguero')]")))
+        except Exception:
+            pass
 
     # Tabs: "📈 Control de Stock" y "📋 Reportes"
     tab_control = wait.until(EC.presence_of_element_located((By.XPATH, "//button[contains(., 'Control de Stock')]")))
@@ -84,13 +97,13 @@ def test_cp_nfn_002_tablet_legibilidad(driver, ensure_frontend):
     pytest.metadata["tablet_btn_registrar_size"] = rect_reg
 
     # Afirmaciones
-    assert fc >= 14, f"Font-size de 'Control de Stock' demasiado pequeño: {fc}px"
-    assert fr >= 14, f"Font-size de 'Reportes' demasiado pequeño: {fr}px"
+    assert fc >= min_font_px, f"Font-size de 'Control de Stock' demasiado pequeño: {fc}px"
+    assert fr >= min_font_px, f"Font-size de 'Reportes' demasiado pequeño: {fr}px"
 
-    assert rect_mov["width"] >= 48 and rect_mov["height"] >= 48, (
+    assert rect_mov["width"] >= min_btn_px and rect_mov["height"] >= min_btn_px, (
         f"Botón 'Movimiento de Stock' muy pequeño: {rect_mov['width']}x{rect_mov['height']}"
     )
-    assert rect_reg["width"] >= 48 and rect_reg["height"] >= 48, (
+    assert rect_reg["width"] >= min_btn_px and rect_reg["height"] >= min_btn_px, (
         f"Botón 'Registrar Movimiento' muy pequeño: {rect_reg['width']}x{rect_reg['height']}"
     )
 

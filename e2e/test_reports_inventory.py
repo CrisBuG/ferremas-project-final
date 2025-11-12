@@ -6,27 +6,40 @@ from selenium.webdriver.support import expected_conditions as EC
 
 
 @pytest.mark.e2e
-def test_generar_reporte_inventario_tiempo(driver, ensure_frontend):
+@pytest.mark.parametrize("click_reports_tab,max_seconds", [
+    (True, 10),
+    (False, 10),
+])
+def test_generar_reporte_inventario_tiempo(driver, ensure_frontend, login_if_staff, perf_budgets, click_reports_tab, max_seconds):
     # Esta prueba intenta generar un reporte desde el dashboard de Bodega si el enlace existe
     driver.get(ensure_frontend + "/#/")
     wait = WebDriverWait(driver, 15)
 
-    # Si no hay enlace de Bodega (cliente), la prueba se omite
-    page = driver.page_source
-    if "Bodega" not in page:
+    # Esperar enlace de Bodega; si no aparece, omitir la prueba
+    try:
+        wait.until(EC.presence_of_element_located((By.XPATH, "//a[contains(., 'Bodega')]")))
+    except Exception:
         pytest.skip("Usuario no tiene acceso a Bodega; prueba aplicable solo para is_staff.")
 
-    # Ir a Bodega
-    link = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(., 'Bodega')]") ))
-    link.click()
+    # Ir a Bodega (fallback directo si el enlace no es clickeable en tablet/móvil)
+    try:
+        link = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(., 'Bodega')]") ))
+        link.click()
+    except Exception:
+        driver.get(ensure_frontend + "/#/warehouse-dashboard")
+        try:
+            wait.until(EC.presence_of_element_located((By.XPATH, "//h1[contains(., 'Dashboard de Bodeguero')]")))
+        except Exception:
+            pass
 
     # Ir a pestaña Reportes si existe
-    try:
-        tab = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Reportes')]") ))
-        tab.click()
-    except Exception:
-        # La página podría cargar directamente sección de reportes
-        pass
+    if click_reports_tab:
+        try:
+            tab = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Reportes')]") ))
+            tab.click()
+        except Exception:
+            # La página podría cargar directamente sección de reportes
+            pass
 
     # Localizar la tabla de reportes por sus encabezados para evitar ambigüedad
     table_xpath = (
@@ -86,4 +99,5 @@ def test_generar_reporte_inventario_tiempo(driver, ensure_frontend):
     assert len(tipo_cell) > 0, "No se encontró el tipo de reporte 'Resumen de Inventario' en la tabla"
 
     # Prueba de rendimiento (si aplica al entorno)
-    assert elapsed < 10, f"El tiempo de generación ({elapsed}s) excede 10s"
+    threshold = perf_budgets.get("inventory_report") or max_seconds
+    assert elapsed < threshold, f"El tiempo de generación ({elapsed}s) excede {threshold}s"
