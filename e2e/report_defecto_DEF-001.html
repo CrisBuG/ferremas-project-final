@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Reporte de Defecto DEF-001 — Timeout en login (Edge)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { color-scheme: dark; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial, sans-serif; background:#0f1115; color:#e6e6e6; margin:0; padding:2rem; }
+      .card { max-width: 1000px; margin: 0 auto; background:#1a1f26; border:1px solid #2a3240; border-radius:12px; overflow:hidden; box-shadow: 0 10px 28px rgba(0,0,0,.45); }
+      header { padding:1.25rem 1.5rem; background:#212733; border-bottom:1px solid #2a3240; }
+      header h1 { margin:0; font-size:1.25rem; letter-spacing:.2px; }
+      main { padding:1.5rem; }
+      h2 { font-size:1rem; margin:1.25rem 0 .5rem; color:#9bbcff; }
+      .grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:1rem; }
+      .box { background:#0f141b; border:1px solid #2a3240; border-radius:8px; padding:.75rem 1rem; }
+      .label { font-size:.82rem; color:#9aa4b2; margin-bottom:.35rem; }
+      .value { font-size:.95rem; color:#e6e6e6; }
+      pre { background:#0b0f14; border:1px solid #2a3240; border-radius:8px; padding:1rem; overflow:auto; line-height:1.4; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size:.92rem; }
+      ul { margin:.25rem 0 0 1.1rem; }
+      .footer { padding:1rem 1.5rem; border-top:1px solid #2a3240; background:#161b22; color:#9aa4b2; font-size:.85rem; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <header>
+        <h1>DEF-001 · Timeout en login por selector <code>name="email"</code> (Edge)</h1>
+      </header>
+      <main>
+        <div class="grid">
+          <div class="box">
+            <div class="label">ID caso de prueba</div>
+            <div class="value">CP-PERM-001</div>
+          </div>
+          <div class="box">
+            <div class="label">Fecha</div>
+            <div class="value">2025-11-13</div>
+          </div>
+          <div class="box">
+            <div class="label">Ambiente</div>
+            <div class="value">Windows • Edge (msedgedriver) • Frontend http://localhost:3000 • Backend http://localhost:8000</div>
+          </div>
+          <div class="box">
+            <div class="label">Nivel de impacto</div>
+            <div class="value">Alta (bloquea validación de permisos de reportes)</div>
+          </div>
+        </div>
+
+        <h2>Función de negocio o módulo</h2>
+        <div class="box"><div class="value">Autenticación y permisos de generación de reportes</div></div>
+
+        <h2>Título</h2>
+        <div class="box"><div class="value">TimeoutException al buscar campo de email en /login — selector no coincide</div></div>
+
+        <h2>Descripción de bug</h2>
+        <div class="box"><div class="value">El flujo de permisos para usuarios no-staff falla al intentar iniciar sesión: el script busca el campo de correo con <code>By.NAME("email")</code>, pero el formulario aparenta usar otro nombre (p.ej. <code>username</code>) o cambió el selector. Se agota el tiempo de espera y no se puede verificar que un no-staff no pueda generar reportes.</div></div>
+
+        <h2>Pasos para replicar (con evidencia)</h2>
+        <div class="box">
+          <div class="value">
+            <ul>
+              <li>Abrir Edge y navegar a <code>http://localhost:3000/login</code>.</li>
+              <li>Ejecutar la prueba de permisos: <code>pytest -q e2e/test_reports_permissions.py::test_nonstaff_cannot_generate_reports --browser=edge -s -vv</code>.</li>
+              <li>El script espera la presencia del campo <code>name="email"</code>.</li>
+              <li>Se supera el timeout y la prueba falla.</li>
+            </ul>
+            <p><strong>Log capturado:</strong></p>
+            <pre><code>selenium.common.exceptions.TimeoutException: Message: timeout after 12 seconds waiting for presence_of_element_located: By.NAME("email")</code></pre>
+          </div>
+        </div>
+
+        <h2>Observaciones</h2>
+        <div class="box"><div class="value">Actualizar el selector del campo de login a su nombre real (p.ej. <code>By.NAME("username")</code>) o un selector estable (p.ej. <code>data-testid</code>). Tras corregirlo, revalidar que usuarios no-staff no vean enlaces de reportes ni puedan acceder a rutas protegidas.</div></div>
+      </main>
+      <div class="footer">
+        Tester/Analista: crist · Evidencia generada automáticamente para inserción en informe.
+      </div>
+    </div>
+  </body>
+</html>
