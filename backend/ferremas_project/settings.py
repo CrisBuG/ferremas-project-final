@@ -3,9 +3,23 @@ Configuración principal del proyecto Django
 """
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+for p in [
+    BASE_DIR / ".env",
+    BASE_DIR / ".env.render",
+    BASE_DIR / ".env.local",
+    BASE_DIR.parent / ".env",
+    BASE_DIR.parent / ".env.render",
+    Path("/etc/secrets/.env"),
+]:
+    try:
+        if p.exists():
+            load_dotenv(dotenv_path=p, override=False)
+    except Exception:
+        pass
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-ferremas-project-secret-key-change-in-production'
