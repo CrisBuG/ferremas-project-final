@@ -90,9 +90,13 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 import dj_database_url
-DATABASES = {
-    'default': dj_database_url.config(default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
-}
+DEFAULT_SQLITE = f'sqlite:///{BASE_DIR / "db.sqlite3"}'
+try:
+    DATABASES = {'default': dj_database_url.config(default=DEFAULT_SQLITE)}
+    if not DATABASES['default'].get('ENGINE'):
+        DATABASES['default'] = dj_database_url.parse(DEFAULT_SQLITE)
+except Exception:
+    DATABASES = {'default': dj_database_url.parse(DEFAULT_SQLITE)}
 # Google OAuth Configuration
 GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '437903201513-pati6campj9n38j2vgn63s2pkugohs7g.apps.googleusercontent.com')
 
