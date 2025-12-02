@@ -13,7 +13,7 @@ SECRET_KEY = 'django-insecure-ferremas-project-secret-key-change-in-production'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DJANGO_DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,*.onrender.com').split(',')
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,*.onrender.com,*.vercel.app').split(',')
 
 
 
@@ -188,11 +188,13 @@ CORS_ALLOWED_ORIGINS = [
     # Dominios específicos (si tu sitio usa uno de estos, siguen permitidos)
     "https://ferremas-project-final-1.onrender.com",
     "https://ferremas-project-final-1l1.onrender.com",
+    "https://*.vercel.app",
 ]
 
 # Permitir cualquier subdominio de Render por regex (https)
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https:\/\/.*\.onrender\.com$",
+    r"^https:\/\/.*\.vercel\.app$",
 ]
 
 CORS_ALLOW_HEADERS = [
@@ -217,6 +219,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://ferremas-project-final-1.onrender.com',
     'https://ferremas-project-final-1l1.onrender.com',
     'https://*.onrender.com',
+    'https://*.vercel.app',
 ]
 
 # Permitir añadir orígenes extra vía variable de entorno en producción

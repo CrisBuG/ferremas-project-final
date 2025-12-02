@@ -1,8 +1,14 @@
 import axios from 'axios';
 
-// Configuración base de Axios
-let API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
-// Normaliza para asegurar que incluya el prefijo '/api' en producción
+let API_BASE_URL = process.env.REACT_APP_API_URL as string | undefined;
+if (!API_BASE_URL) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  if (origin.includes('vercel.app')) {
+    API_BASE_URL = '/api';
+  } else {
+    API_BASE_URL = 'http://localhost:8000/api';
+  }
+}
 if (!API_BASE_URL.endsWith('/api')) {
   API_BASE_URL = API_BASE_URL.replace(/\/$/, '') + '/api';
 }
